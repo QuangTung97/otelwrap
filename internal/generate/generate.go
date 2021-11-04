@@ -20,13 +20,14 @@ type packageTypeMethod struct {
 	results []packageTypeTuple
 }
 
-type packageInfo struct {
-	path string
+type packageImportInfo struct {
+	aliasName string
+	path      string
 }
 
 type packageTypeInfo struct {
 	interfaceName string
-	packageMap    []packageInfo
+	imports       []packageImportInfo
 	methods       []packageTypeMethod
 }
 
@@ -61,6 +62,51 @@ func fieldListToTupleList(
 	return tuples
 }
 
+func readFiles(files []string) map[string]string {
+	fileMap := map[string]string{}
+	for _, filename := range files {
+		file, err := os.Open(filename)
+		if err != nil {
+			panic(err)
+		}
+
+		data, err := ioutil.ReadAll(file)
+		if err != nil {
+			panic(err)
+		}
+		fileMap[filename] = string(data)
+		_ = file.Close()
+	}
+	return fileMap
+}
+
+func findInterfaceType(interfaceName string, syntax []*ast.File) (*ast.InterfaceType, error) {
+	var foundTypeSpec *ast.TypeSpec
+	for _, syntax := range syntax {
+		for _, decl := range syntax.Decls {
+			genDecl, ok := decl.(*ast.GenDecl)
+			if !ok {
+				continue
+			}
+			for _, spec := range genDecl.Specs {
+				typeSpec, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+				if typeSpec.Name.Name == interfaceName {
+					foundTypeSpec = typeSpec
+				}
+			}
+		}
+	}
+
+	interfaceType, ok := foundTypeSpec.Type.(*ast.InterfaceType)
+	if !ok {
+		return nil, fmt.Errorf("name '%s' is not an interface", interfaceName)
+	}
+	return interfaceType, nil
+}
+
 func loadPackageTypeData(pattern string, interfaceName string) (packageTypeInfo, error) {
 	mode := packages.NeedName | packages.NeedSyntax | packages.NeedCompiledGoFiles |
 		packages.NeedTypes | packages.NeedTypesInfo | packages.NeedImports
@@ -84,43 +130,24 @@ func loadPackageTypeData(pattern string, interfaceName string) (packageTypeInfo,
 		return packageTypeInfo{}, fmt.Errorf("can not find interface '%s'", interfaceName)
 	}
 
-	fileMap := map[string]string{}
-	for _, filename := range foundPkg.CompiledGoFiles {
-		file, err := os.Open(filename)
-		if err != nil {
-			panic(err)
-		}
-
-		data, err := ioutil.ReadAll(file)
-		if err != nil {
-			panic(err)
-		}
-		fileMap[filename] = string(data)
-		_ = file.Close()
+	fileMap := readFiles(foundPkg.CompiledGoFiles)
+	interfaceType, err := findInterfaceType(interfaceName, foundPkg.Syntax)
+	if err != nil {
+		return packageTypeInfo{}, err
 	}
 
-	var foundTypeSpec *ast.TypeSpec
+	var imports []packageImportInfo
 	for _, syntax := range foundPkg.Syntax {
-		for _, decl := range syntax.Decls {
-			genDecl, ok := decl.(*ast.GenDecl)
-			if !ok {
-				continue
+		for _, importInfo := range syntax.Imports {
+			aliasName := ""
+			if importInfo.Name != nil {
+				aliasName = importInfo.Name.Name
 			}
-			for _, spec := range genDecl.Specs {
-				typeSpec, ok := spec.(*ast.TypeSpec)
-				if !ok {
-					continue
-				}
-				if typeSpec.Name.Name == interfaceName {
-					foundTypeSpec = typeSpec
-				}
-			}
+			imports = append(imports, packageImportInfo{
+				aliasName: aliasName,
+				path:      importInfo.Path.Value,
+			})
 		}
-	}
-
-	interfaceType, ok := foundTypeSpec.Type.(*ast.InterfaceType)
-	if !ok {
-		return packageTypeInfo{}, fmt.Errorf("name '%s' is not an interface", interfaceName)
 	}
 
 	methods := make([]packageTypeMethod, 0, len(interfaceType.Methods.List))
@@ -142,6 +169,7 @@ func loadPackageTypeData(pattern string, interfaceName string) (packageTypeInfo,
 
 	return packageTypeInfo{
 		interfaceName: interfaceName,
+		imports:       imports,
 		methods:       methods,
 	}, nil
 }
