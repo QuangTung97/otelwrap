@@ -10,75 +10,79 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 	assert.Equal(t, nil, err)
 	assert.Equal(t, packageTypeInfo{
 		interfaceName: "Processor",
-		packageMap: map[string]packageInfo{
-			"context": {
-				path: "context",
-			},
-			"time": {
-				path: "time",
-			},
-			"otelgo": {
-				path: "github.com/QuangTung97/otelwrap/internal/generate/hello/otel",
-			},
-		},
-		methods: map[string]packageTypeMethod{
-			"DoA": {
+		methods: []packageTypeMethod{
+			{
+				name: "DoA",
 				params: []packageTypeTuple{
 					{
-						name:        "ctx",
-						typeName:    "Context",
-						packageName: "context",
+						name:    "ctx",
+						typeStr: "context.Context",
 					},
 					{
-						name:     "n",
-						typeName: "int",
+						name:    "n",
+						typeStr: "int",
 					},
 				},
 				results: []packageTypeTuple{
 					{
-						typeName: "error",
+						typeStr: "error",
 					},
 				},
 			},
-			"Handle": {
+			{
+				name: "Handle",
 				params: []packageTypeTuple{
 					{
-						name:        "ctx",
-						typeName:    "Context",
-						packageName: "context",
+						name:    "ctx",
+						typeStr: "context.Context",
 					},
 					{
-						name:     "u",
-						typeName: "User",
+						name:    "u",
+						typeStr: "*User",
 					},
 				},
 				results: []packageTypeTuple{
 					{
-						typeName: "error",
+						typeStr: "error",
 					},
 				},
 			},
-			"Get": {
+			{
+				name: "Get",
 				params: []packageTypeTuple{
 					{
-						name:        "ctx",
-						typeName:    "Context",
-						packageName: "context",
+						name:    "ctx",
+						typeStr: "context.Context",
 					},
 					{
-						name:     "id",
-						typeName: "int64",
+						name:    "id",
+						typeStr: "int64",
+					},
+					{
+						name:    "content",
+						typeStr: "otelgosdk.Content",
 					},
 				},
 				results: []packageTypeTuple{
 					{
-						typeName:    "Person",
-						packageName: "otelgo",
+						typeStr: "otelgo.Person",
 					},
 					{
-						typeName: "error",
+						typeStr: "error",
 					},
 				},
+			},
+			{
+				name: "NoName",
+				params: []packageTypeTuple{
+					{
+						typeStr: "context.Context",
+					},
+					{
+						typeStr: "int",
+					},
+				},
+				results: nil,
 			},
 		},
 	}, info)

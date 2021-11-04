@@ -17,4 +17,5 @@ type Processor interface {
 	DoA(ctx context.Context, n int) error
 	Handle(ctx context.Context, u *User) error
 	Get(ctx context.Context, id int64, content otelgosdk.Content) (otelgo.Person, error)
+	NoName(context.Context, int)
 }

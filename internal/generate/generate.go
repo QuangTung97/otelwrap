@@ -3,17 +3,19 @@ package generate
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
 	"golang.org/x/tools/go/packages"
-	"reflect"
+	"io/ioutil"
+	"os"
 )
 
 type packageTypeTuple struct {
-	name        string
-	typeName    string
-	packageName string
+	name    string
+	typeStr string
 }
 
 type packageTypeMethod struct {
+	name    string
 	params  []packageTypeTuple
 	results []packageTypeTuple
 }
@@ -24,8 +26,39 @@ type packageInfo struct {
 
 type packageTypeInfo struct {
 	interfaceName string
-	packageMap    map[string]packageInfo
-	methods       map[string]packageTypeMethod
+	packageMap    []packageInfo
+	methods       []packageTypeMethod
+}
+
+func fieldListToTupleList(
+	fileList *ast.FieldList, fset *token.FileSet, fileMap map[string]string,
+) []packageTypeTuple {
+	if fileList == nil {
+		return nil
+	}
+
+	var tuples []packageTypeTuple
+	for _, resultField := range fileList.List {
+		begin := resultField.Type.Pos()
+		end := resultField.Type.End()
+		file := fset.File(begin)
+
+		filename := file.Name()
+		typeStr := fileMap[filename][file.Offset(begin):file.Offset(end)]
+
+		for _, resultName := range resultField.Names {
+			tuples = append(tuples, packageTypeTuple{
+				name:    resultName.Name,
+				typeStr: typeStr,
+			})
+		}
+		if len(resultField.Names) == 0 {
+			tuples = append(tuples, packageTypeTuple{
+				typeStr: typeStr,
+			})
+		}
+	}
+	return tuples
 }
 
 func loadPackageTypeData(pattern string, interfaceName string) (packageTypeInfo, error) {
@@ -51,6 +84,21 @@ func loadPackageTypeData(pattern string, interfaceName string) (packageTypeInfo,
 		return packageTypeInfo{}, fmt.Errorf("can not find interface '%s'", interfaceName)
 	}
 
+	fileMap := map[string]string{}
+	for _, filename := range foundPkg.CompiledGoFiles {
+		file, err := os.Open(filename)
+		if err != nil {
+			panic(err)
+		}
+
+		data, err := ioutil.ReadAll(file)
+		if err != nil {
+			panic(err)
+		}
+		fileMap[filename] = string(data)
+		_ = file.Close()
+	}
+
 	var foundTypeSpec *ast.TypeSpec
 	for _, syntax := range foundPkg.Syntax {
 		for _, decl := range syntax.Decls {
@@ -69,28 +117,31 @@ func loadPackageTypeData(pattern string, interfaceName string) (packageTypeInfo,
 			}
 		}
 	}
+
 	interfaceType, ok := foundTypeSpec.Type.(*ast.InterfaceType)
 	if !ok {
 		return packageTypeInfo{}, fmt.Errorf("name '%s' is not an interface", interfaceName)
 	}
+
+	methods := make([]packageTypeMethod, 0, len(interfaceType.Methods.List))
 	for _, field := range interfaceType.Methods.List {
 		funcType, ok := field.Type.(*ast.FuncType)
 		if !ok {
 			continue
 		}
-		for _, paramField := range funcType.Params.List {
-			fmt.Println(paramField.Names)
-			fmt.Println(paramField.Type)
-			fmt.Println(paramField.Type.Pos(), paramField.Type.End())
-			fmt.Println(reflect.TypeOf(paramField.Type))
 
-			selectorExpr, ok := paramField.Type.(*ast.SelectorExpr)
-			if ok {
-				fmt.Println("SEL:", selectorExpr.Sel)
-				fmt.Println("Expr:", selectorExpr.X, reflect.TypeOf(selectorExpr.X))
-			}
-		}
+		params := fieldListToTupleList(funcType.Params, foundPkg.Fset, fileMap)
+		results := fieldListToTupleList(funcType.Results, foundPkg.Fset, fileMap)
+
+		methods = append(methods, packageTypeMethod{
+			name:    field.Names[0].Name,
+			params:  params,
+			results: results,
+		})
 	}
 
-	return packageTypeInfo{}, nil
+	return packageTypeInfo{
+		interfaceName: interfaceName,
+		methods:       methods,
+	}, nil
 }
