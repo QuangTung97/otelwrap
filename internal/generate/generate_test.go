@@ -1,10 +1,7 @@
 package generate
 
 import (
-	"fmt"
 	"github.com/stretchr/testify/assert"
-	"go/types"
-	"golang.org/x/tools/go/packages"
 	"testing"
 )
 
@@ -85,27 +82,4 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 			},
 		},
 	}, info)
-}
-
-func TestGenerate(t *testing.T) {
-	mode := packages.NeedName | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedImports
-	pkgList, err := packages.Load(&packages.Config{
-		Mode: mode,
-	}, "./hello")
-	if err != nil {
-		panic(err)
-	}
-
-	for _, pkg := range pkgList {
-		fmt.Println(pkg.PkgPath)
-		interf := pkg.Types.Scope().Lookup("Processor")
-		fmt.Println(interf)
-		fmt.Println(interf.Name())
-		fmt.Println(interf.Id())
-		undertype := interf.Type().Underlying().(*types.Interface)
-		method := undertype.Method(0)
-		methodType := method.Type().(*types.Signature)
-		fmt.Println("PARAMS", methodType.Params())
-		fmt.Println("RETURN", methodType.Results())
-	}
 }

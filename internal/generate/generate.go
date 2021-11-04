@@ -2,8 +2,9 @@ package generate
 
 import (
 	"fmt"
-	"go/types"
+	"go/ast"
 	"golang.org/x/tools/go/packages"
+	"reflect"
 )
 
 type packageTypeTuple struct {
@@ -28,7 +29,7 @@ type packageTypeInfo struct {
 }
 
 func loadPackageTypeData(pattern string, interfaceName string) (packageTypeInfo, error) {
-	mode := packages.NeedName | packages.NeedSyntax |
+	mode := packages.NeedName | packages.NeedSyntax | packages.NeedCompiledGoFiles |
 		packages.NeedTypes | packages.NeedTypesInfo | packages.NeedImports
 
 	pkgList, err := packages.Load(&packages.Config{
@@ -38,94 +39,58 @@ func loadPackageTypeData(pattern string, interfaceName string) (packageTypeInfo,
 		return packageTypeInfo{}, err
 	}
 
-	var interfaceObject types.Object
-	var foundPkg *types.Package
+	var foundPkg *packages.Package
 	for _, pkg := range pkgList {
-		interfaceObject = pkg.Types.Scope().Lookup(interfaceName)
-		if interfaceObject != nil {
-			foundPkg = pkg.Types
+		if pkg.Types.Scope().Lookup(interfaceName) != nil {
+			foundPkg = pkg
 			break
 		}
 	}
 
-	if interfaceObject == nil {
+	if foundPkg == nil {
 		return packageTypeInfo{}, fmt.Errorf("can not find interface '%s'", interfaceName)
 	}
 
-	packageMap := map[string]packageInfo{}
-	for _, importInfo := range foundPkg.Imports() {
-		packageMap[importInfo.Name()] = packageInfo{
-			path: importInfo.Path(),
+	var foundTypeSpec *ast.TypeSpec
+	for _, syntax := range foundPkg.Syntax {
+		for _, decl := range syntax.Decls {
+			genDecl, ok := decl.(*ast.GenDecl)
+			if !ok {
+				continue
+			}
+			for _, spec := range genDecl.Specs {
+				typeSpec, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+				if typeSpec.Name.Name == interfaceName {
+					foundTypeSpec = typeSpec
+				}
+			}
 		}
 	}
-
-	underline, ok := interfaceObject.Type().Underlying().(*types.Interface)
+	interfaceType, ok := foundTypeSpec.Type.(*ast.InterfaceType)
 	if !ok {
 		return packageTypeInfo{}, fmt.Errorf("name '%s' is not an interface", interfaceName)
 	}
-
-	packagePath := foundPkg.Path()
-	fmt.Println(packagePath)
-
-	numMethod := underline.NumMethods()
-	methods := map[string]packageTypeMethod{}
-	for i := 0; i < numMethod; i++ {
-		m := underline.Method(i)
-
-		sig := m.Type().(*types.Signature)
-
-		params := make([]packageTypeTuple, 0, sig.Params().Len())
-		for i := 0; i < sig.Params().Len(); i++ {
-			param := sig.Params().At(i)
-
-			typeName := param.Type().String()
-			packageName := ""
-			namedType, ok := param.Type().(*types.Named)
-			if ok {
-				typeName = namedType.Obj().Name()
-				if namedType.Obj().Pkg().Path() != packagePath {
-					packageName = namedType.Obj().Pkg().Name()
-				}
-			}
-
-			params = append(params, packageTypeTuple{
-				name:        param.Name(),
-				typeName:    typeName,
-				packageName: packageName,
-			})
+	for _, field := range interfaceType.Methods.List {
+		funcType, ok := field.Type.(*ast.FuncType)
+		if !ok {
+			continue
 		}
+		for _, paramField := range funcType.Params.List {
+			fmt.Println(paramField.Names)
+			fmt.Println(paramField.Type)
+			fmt.Println(paramField.Type.Pos(), paramField.Type.End())
+			fmt.Println(reflect.TypeOf(paramField.Type))
 
-		results := make([]packageTypeTuple, 0, sig.Results().Len())
-		for i := 0; i < sig.Results().Len(); i++ {
-			r := sig.Results().At(i)
-
-			typeName := r.Type().String()
-			packageName := ""
-			namedType, ok := r.Type().(*types.Named)
+			selectorExpr, ok := paramField.Type.(*ast.SelectorExpr)
 			if ok {
-				typeName = namedType.Obj().Name()
-
-				pkg := namedType.Obj().Pkg()
-				if pkg != nil && pkg.Path() != packagePath {
-					packageName = namedType.Obj().Pkg().Name()
-				}
+				fmt.Println("SEL:", selectorExpr.Sel)
+				fmt.Println("Expr:", selectorExpr.X, reflect.TypeOf(selectorExpr.X))
 			}
-
-			results = append(results, packageTypeTuple{
-				name:        r.Name(),
-				typeName:    typeName,
-				packageName: packageName,
-			})
-		}
-
-		methods[m.Name()] = packageTypeMethod{
-			params:  params,
-			results: results,
 		}
 	}
-	return packageTypeInfo{
-		interfaceName: interfaceName,
-		packageMap:    packageMap,
-		methods:       methods,
-	}, nil
+
+	return packageTypeInfo{}, nil
 }
