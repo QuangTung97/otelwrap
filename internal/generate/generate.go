@@ -20,27 +20,32 @@ const (
 	recognizedTypeError
 )
 
-type packageTypeTuple struct {
+type tupleType struct {
 	name       string
 	typeStr    string
 	recognized recognizedType
+	isVariadic bool
 }
 
-type packageTypeMethod struct {
+type methodType struct {
 	name    string
-	params  []packageTypeTuple
-	results []packageTypeTuple
+	params  []tupleType
+	results []tupleType
 }
 
-type packageImportInfo struct {
+type importInfo struct {
 	aliasName string
 	path      string
 }
 
+type interfaceInfo struct {
+	name    string
+	methods []methodType
+}
+
 type packageTypeInfo struct {
-	interfaceName string
-	imports       []packageImportInfo
-	methods       []packageTypeMethod
+	imports    []importInfo
+	interfaces []interfaceInfo
 }
 
 func getRecognizedType(field *ast.Field, info *types.Info) recognizedType {
@@ -62,12 +67,12 @@ func getRecognizedType(field *ast.Field, info *types.Info) recognizedType {
 func fieldListToTupleList(
 	fileList *ast.FieldList, fset *token.FileSet,
 	fileMap map[string]string, info *types.Info,
-) []packageTypeTuple {
+) []tupleType {
 	if fileList == nil {
 		return nil
 	}
 
-	var tuples []packageTypeTuple
+	var tuples []tupleType
 	for _, field := range fileList.List {
 		begin := field.Type.Pos()
 		end := field.Type.End()
@@ -76,18 +81,26 @@ func fieldListToTupleList(
 		filename := file.Name()
 		typeStr := fileMap[filename][file.Offset(begin):file.Offset(end)]
 
+		isVariadic := false
+		_, ok := field.Type.(*ast.Ellipsis)
+		if ok {
+			isVariadic = true
+		}
+
 		recognized := getRecognizedType(field, info)
 		for _, resultName := range field.Names {
-			tuples = append(tuples, packageTypeTuple{
+			tuples = append(tuples, tupleType{
 				name:       resultName.Name,
 				typeStr:    typeStr,
 				recognized: recognized,
+				isVariadic: isVariadic,
 			})
 		}
 		if len(field.Names) == 0 {
-			tuples = append(tuples, packageTypeTuple{
+			tuples = append(tuples, tupleType{
 				typeStr:    typeStr,
 				recognized: recognized,
+				isVariadic: isVariadic,
 			})
 		}
 	}
@@ -139,19 +152,19 @@ func findInterfaceType(interfaceName string, syntax []*ast.File) (*ast.Interface
 	return interfaceType, nil
 }
 
-func getImportInfos(syntaxFiles []*ast.File, acceptedPackages map[string]struct{}) []packageImportInfo {
-	var imports []packageImportInfo
+func getImportInfos(syntaxFiles []*ast.File, acceptedPackages map[string]struct{}) []importInfo {
+	var imports []importInfo
 	for _, syntax := range syntaxFiles {
-		for _, importInfo := range syntax.Imports {
-			pathValue, err := strconv.Unquote(importInfo.Path.Value)
+		for _, importDetail := range syntax.Imports {
+			pathValue, err := strconv.Unquote(importDetail.Path.Value)
 			if err != nil {
 				panic(err)
 			}
 
 			aliasName := ""
 			usedName := path.Base(pathValue)
-			if importInfo.Name != nil {
-				aliasName = importInfo.Name.Name
+			if importDetail.Name != nil {
+				aliasName = importDetail.Name.Name
 				usedName = aliasName
 			}
 
@@ -159,7 +172,7 @@ func getImportInfos(syntaxFiles []*ast.File, acceptedPackages map[string]struct{
 				continue
 			}
 
-			imports = append(imports, packageImportInfo{
+			imports = append(imports, importInfo{
 				aliasName: aliasName,
 				path:      pathValue,
 			})
@@ -197,7 +210,42 @@ func (v *importVisitor) Visit(node ast.Node) ast.Visitor {
 	return v
 }
 
-func loadPackageTypeData(pattern string, interfaceName string) (packageTypeInfo, error) {
+func getInterfaceInfo(
+	interfaceName string, foundPkg *packages.Package,
+	fileMap map[string]string,
+	visitor *importVisitor,
+) (interfaceInfo, error) {
+	interfaceType, err := findInterfaceType(interfaceName, foundPkg.Syntax)
+	if err != nil {
+		return interfaceInfo{}, err
+	}
+
+	ast.Walk(visitor, interfaceType)
+
+	methods := make([]methodType, 0, len(interfaceType.Methods.List))
+	for _, field := range interfaceType.Methods.List {
+		funcType, ok := field.Type.(*ast.FuncType)
+		if !ok {
+			continue
+		}
+
+		params := fieldListToTupleList(funcType.Params, foundPkg.Fset, fileMap, foundPkg.TypesInfo)
+		results := fieldListToTupleList(funcType.Results, foundPkg.Fset, fileMap, foundPkg.TypesInfo)
+
+		methods = append(methods, methodType{
+			name:    field.Names[0].Name,
+			params:  params,
+			results: results,
+		})
+	}
+
+	return interfaceInfo{
+		name:    interfaceName,
+		methods: methods,
+	}, nil
+}
+
+func loadPackageTypeData(pattern string, interfaceNames ...string) (packageTypeInfo, error) {
 	mode := packages.NeedName | packages.NeedSyntax | packages.NeedCompiledGoFiles |
 		packages.NeedTypes | packages.NeedTypesInfo
 
@@ -210,47 +258,38 @@ func loadPackageTypeData(pattern string, interfaceName string) (packageTypeInfo,
 
 	var foundPkg *packages.Package
 	for _, pkg := range pkgList {
-		if pkg.Types.Scope().Lookup(interfaceName) != nil {
+		if pkg.Types.Scope().Lookup(interfaceNames[0]) != nil {
 			foundPkg = pkg
 			break
 		}
 	}
 
 	if foundPkg == nil {
-		return packageTypeInfo{}, fmt.Errorf("can not find interface '%s'", interfaceName)
+		return packageTypeInfo{}, fmt.Errorf("can not find interface '%s'", interfaceNames[0])
+	}
+	for _, otherName := range interfaceNames[1:] {
+		if foundPkg.Types.Scope().Lookup(otherName) == nil {
+			return packageTypeInfo{}, fmt.Errorf("can not find interface '%s'", otherName)
+		}
 	}
 
 	fileMap := readFiles(foundPkg.CompiledGoFiles)
-	interfaceType, err := findInterfaceType(interfaceName, foundPkg.Syntax)
-	if err != nil {
-		return packageTypeInfo{}, err
-	}
 
 	visitor := newImportVisitor(foundPkg.TypesInfo)
-	ast.Walk(visitor, interfaceType)
+
+	var interfaces []interfaceInfo
+	for _, interfaceName := range interfaceNames {
+		info, err := getInterfaceInfo(interfaceName, foundPkg, fileMap, visitor)
+		if err != nil {
+			return packageTypeInfo{}, err
+		}
+		interfaces = append(interfaces, info)
+	}
 
 	imports := getImportInfos(foundPkg.Syntax, visitor.packageNames)
 
-	methods := make([]packageTypeMethod, 0, len(interfaceType.Methods.List))
-	for _, field := range interfaceType.Methods.List {
-		funcType, ok := field.Type.(*ast.FuncType)
-		if !ok {
-			continue
-		}
-
-		params := fieldListToTupleList(funcType.Params, foundPkg.Fset, fileMap, foundPkg.TypesInfo)
-		results := fieldListToTupleList(funcType.Results, foundPkg.Fset, fileMap, foundPkg.TypesInfo)
-
-		methods = append(methods, packageTypeMethod{
-			name:    field.Names[0].Name,
-			params:  params,
-			results: results,
-		})
-	}
-
 	return packageTypeInfo{
-		interfaceName: interfaceName,
-		imports:       imports,
-		methods:       methods,
+		imports:    imports,
+		interfaces: interfaces,
 	}, nil
 }

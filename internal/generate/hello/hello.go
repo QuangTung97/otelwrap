@@ -20,4 +20,5 @@ type Processor interface {
 	Handle(ctx context.Context, u *User) error
 	Get(ctx context.Context, id int64, content otelgosdk.Content) (otelgo.Person, error)
 	NoName(context.Context, int)
+	ManyParams(ctx context.Context, params ...string)
 }

@@ -8,25 +8,13 @@ import (
 func TestLoadPackageTypeInfo(t *testing.T) {
 	info, err := loadPackageTypeData("./hello", "Processor")
 	assert.Equal(t, nil, err)
-	assert.Equal(t, packageTypeInfo{
-		interfaceName: "Processor",
-		imports: []packageImportInfo{
-			{
-				aliasName: "",
-				path:      "context",
-			},
-			{
-				aliasName: "otelgo",
-				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/otel",
-			}, {
-				aliasName: "otelgosdk",
-				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk",
-			},
-		},
-		methods: []packageTypeMethod{
+
+	interface1 := interfaceInfo{
+		name: "Processor",
+		methods: []methodType{
 			{
 				name: "DoA",
-				params: []packageTypeTuple{
+				params: []tupleType{
 					{
 						name:       "ctx",
 						typeStr:    "context.Context",
@@ -37,7 +25,7 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 						typeStr: "int",
 					},
 				},
-				results: []packageTypeTuple{
+				results: []tupleType{
 					{
 						typeStr:    "error",
 						recognized: recognizedTypeError,
@@ -46,7 +34,7 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 			},
 			{
 				name: "Handle",
-				params: []packageTypeTuple{
+				params: []tupleType{
 					{
 						name:       "ctx",
 						typeStr:    "context.Context",
@@ -57,7 +45,7 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 						typeStr: "*User",
 					},
 				},
-				results: []packageTypeTuple{
+				results: []tupleType{
 					{
 						typeStr:    "error",
 						recognized: recognizedTypeError,
@@ -66,7 +54,7 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 			},
 			{
 				name: "Get",
-				params: []packageTypeTuple{
+				params: []tupleType{
 					{
 						name:       "ctx",
 						typeStr:    "context.Context",
@@ -81,7 +69,7 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 						typeStr: "otelgosdk.Content",
 					},
 				},
-				results: []packageTypeTuple{
+				results: []tupleType{
 					{
 						typeStr: "otelgo.Person",
 					},
@@ -93,7 +81,7 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 			},
 			{
 				name: "NoName",
-				params: []packageTypeTuple{
+				params: []tupleType{
 					{
 						typeStr:    "context.Context",
 						recognized: recognizedTypeContext,
@@ -104,6 +92,39 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 				},
 				results: nil,
 			},
+			{
+				name: "ManyParams",
+				params: []tupleType{
+					{
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
+					},
+					{
+						name:       "params",
+						typeStr:    "...string",
+						isVariadic: true,
+					},
+				},
+				results: nil,
+			},
 		},
+	}
+
+	assert.Equal(t, packageTypeInfo{
+		imports: []importInfo{
+			{
+				aliasName: "",
+				path:      "context",
+			},
+			{
+				aliasName: "otelgo",
+				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/otel",
+			}, {
+				aliasName: "otelgosdk",
+				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk",
+			},
+		},
+		interfaces: []interfaceInfo{interface1},
 	}, info)
 }
