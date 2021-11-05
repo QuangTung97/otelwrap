@@ -44,6 +44,7 @@ type interfaceInfo struct {
 }
 
 type packageTypeInfo struct {
+	name       string
 	imports    []importInfo
 	interfaces []interfaceInfo
 }
@@ -289,6 +290,7 @@ func loadPackageTypeData(pattern string, interfaceNames ...string) (packageTypeI
 	imports := getImportInfos(foundPkg.Syntax, visitor.packageNames)
 
 	return packageTypeInfo{
+		name:       foundPkg.Name,
 		imports:    imports,
 		interfaces: interfaces,
 	}, nil

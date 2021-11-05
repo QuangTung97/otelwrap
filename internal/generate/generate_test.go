@@ -112,6 +112,7 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 	}
 
 	assert.Equal(t, packageTypeInfo{
+		name: "hello",
 		imports: []importInfo{
 			{
 				aliasName: "",
