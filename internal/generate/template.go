@@ -27,12 +27,12 @@ func (w *{{ $interface.StructName }}) {{ .Name }}{{ .ParamsString }} {{ .Results
 	ctx, span := w.tracer.Start(ctx, w.prefix + "{{ .Name }}")
 	defer span.End()
 
-	err := w.{{ $interface.Name }}.{{ .Name }}({{ .ArgsString }})
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
+	{{ .ResultsRecvString }} := w.{{ $interface.Name }}.{{ .Name }}({{ .ArgsString }})
+	if {{ .ErrString }} != nil {
+		span.RecordError({{ .ErrString }})
+		span.SetStatus(codes.Error, {{ .ErrString }}.Error())
 	}
-	return err
+	return {{ .ResultsRecvString }}
 }
 {{ end -}}
 {{ end -}}
@@ -49,10 +49,12 @@ func initTemplate() *template.Template {
 var resultTemplate = initTemplate()
 
 type templateMethod struct {
-	Name          string
-	ParamsString  string
-	ResultsString string
-	ArgsString    string
+	Name              string
+	ParamsString      string
+	ResultsString     string
+	ArgsString        string
+	ResultsRecvString string
+	ErrString         string
 }
 
 type templateInterface struct {
@@ -97,6 +99,23 @@ func generateArgsString(fields []tupleType) string {
 	return strings.Join(args, ", ")
 }
 
+func generateResultsRecvString(fields []tupleType) (s string, errStr string) {
+	var results []string
+	for _, f := range fields {
+		name := f.name
+
+		if f.recognized == recognizedTypeError {
+			errStr = "err"
+		}
+
+		if f.name == "" && f.recognized == recognizedTypeError {
+			name = "err"
+		}
+		results = append(results, name)
+	}
+	return strings.Join(results, ", "), errStr
+}
+
 func generateCode(writer io.Writer, info packageTypeInfo) error {
 	var imports []string
 	for _, importDetail := range info.imports {
@@ -116,11 +135,15 @@ func generateCode(writer io.Writer, info packageTypeInfo) error {
 				resultsStr = fmt.Sprintf("(%s)", resultsStr)
 			}
 
+			recvStr, errStr := generateResultsRecvString(method.results)
+
 			methods = append(methods, templateMethod{
-				Name:          method.name,
-				ParamsString:  paramsStr,
-				ResultsString: resultsStr,
-				ArgsString:    generateArgsString(method.params),
+				Name:              method.name,
+				ParamsString:      paramsStr,
+				ResultsString:     resultsStr,
+				ArgsString:        generateArgsString(method.params),
+				ResultsRecvString: recvStr,
+				ErrString:         errStr,
 			})
 		}
 
