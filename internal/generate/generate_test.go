@@ -13,18 +13,14 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 		imports: []packageImportInfo{
 			{
 				aliasName: "",
-				path:      `"context"`,
+				path:      "context",
 			},
 			{
 				aliasName: "otelgo",
-				path:      `"github.com/QuangTung97/otelwrap/internal/generate/hello/otel"`,
+				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/otel",
 			}, {
 				aliasName: "otelgosdk",
-				path:      `"github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk"`,
-			},
-			{
-				aliasName: "",
-				path:      `"time"`,
+				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk",
 			},
 		},
 		methods: []packageTypeMethod{
@@ -32,8 +28,9 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 				name: "DoA",
 				params: []packageTypeTuple{
 					{
-						name:    "ctx",
-						typeStr: "context.Context",
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
 					},
 					{
 						name:    "n",
@@ -42,7 +39,8 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 				},
 				results: []packageTypeTuple{
 					{
-						typeStr: "error",
+						typeStr:    "error",
+						recognized: recognizedTypeError,
 					},
 				},
 			},
@@ -50,8 +48,9 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 				name: "Handle",
 				params: []packageTypeTuple{
 					{
-						name:    "ctx",
-						typeStr: "context.Context",
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
 					},
 					{
 						name:    "u",
@@ -60,7 +59,8 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 				},
 				results: []packageTypeTuple{
 					{
-						typeStr: "error",
+						typeStr:    "error",
+						recognized: recognizedTypeError,
 					},
 				},
 			},
@@ -68,8 +68,9 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 				name: "Get",
 				params: []packageTypeTuple{
 					{
-						name:    "ctx",
-						typeStr: "context.Context",
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
 					},
 					{
 						name:    "id",
@@ -85,7 +86,8 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 						typeStr: "otelgo.Person",
 					},
 					{
-						typeStr: "error",
+						typeStr:    "error",
+						recognized: recognizedTypeError,
 					},
 				},
 			},
@@ -93,7 +95,8 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 				name: "NoName",
 				params: []packageTypeTuple{
 					{
-						typeStr: "context.Context",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
 					},
 					{
 						typeStr: "int",

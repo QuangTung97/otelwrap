@@ -2,6 +2,7 @@ package hello
 
 import (
 	"context"
+	"database/sql"
 	otelgo "github.com/QuangTung97/otelwrap/internal/generate/hello/otel"
 	otelgosdk "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk"
 	"time"
@@ -11,6 +12,7 @@ type User struct {
 	ID        int64
 	Name      string
 	CreatedAt time.Time
+	IsValid   sql.NullBool
 }
 
 type Processor interface {

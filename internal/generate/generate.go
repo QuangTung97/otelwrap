@@ -4,14 +4,26 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"go/types"
 	"golang.org/x/tools/go/packages"
 	"io/ioutil"
 	"os"
+	"path"
+	"strconv"
+)
+
+type recognizedType int
+
+const (
+	recognizedTypeUnknown recognizedType = iota
+	recognizedTypeContext
+	recognizedTypeError
 )
 
 type packageTypeTuple struct {
-	name    string
-	typeStr string
+	name       string
+	typeStr    string
+	recognized recognizedType
 }
 
 type packageTypeMethod struct {
@@ -31,31 +43,51 @@ type packageTypeInfo struct {
 	methods       []packageTypeMethod
 }
 
+func getRecognizedType(field *ast.Field, info *types.Info) recognizedType {
+	fieldType := info.TypeOf(field.Type)
+	namedType, ok := fieldType.(*types.Named)
+	if ok {
+		name := namedType.Obj().Name()
+		pkg := namedType.Obj().Pkg()
+		if name == "Context" && pkg != nil && pkg.Path() == "context" {
+			return recognizedTypeContext
+		}
+		if name == "error" && pkg == nil {
+			return recognizedTypeError
+		}
+	}
+	return recognizedTypeUnknown
+}
+
 func fieldListToTupleList(
-	fileList *ast.FieldList, fset *token.FileSet, fileMap map[string]string,
+	fileList *ast.FieldList, fset *token.FileSet,
+	fileMap map[string]string, info *types.Info,
 ) []packageTypeTuple {
 	if fileList == nil {
 		return nil
 	}
 
 	var tuples []packageTypeTuple
-	for _, resultField := range fileList.List {
-		begin := resultField.Type.Pos()
-		end := resultField.Type.End()
+	for _, field := range fileList.List {
+		begin := field.Type.Pos()
+		end := field.Type.End()
 		file := fset.File(begin)
 
 		filename := file.Name()
 		typeStr := fileMap[filename][file.Offset(begin):file.Offset(end)]
 
-		for _, resultName := range resultField.Names {
+		recognized := getRecognizedType(field, info)
+		for _, resultName := range field.Names {
 			tuples = append(tuples, packageTypeTuple{
-				name:    resultName.Name,
-				typeStr: typeStr,
+				name:       resultName.Name,
+				typeStr:    typeStr,
+				recognized: recognized,
 			})
 		}
-		if len(resultField.Names) == 0 {
+		if len(field.Names) == 0 {
 			tuples = append(tuples, packageTypeTuple{
-				typeStr: typeStr,
+				typeStr:    typeStr,
+				recognized: recognized,
 			})
 		}
 	}
@@ -107,9 +139,67 @@ func findInterfaceType(interfaceName string, syntax []*ast.File) (*ast.Interface
 	return interfaceType, nil
 }
 
+func getImportInfos(syntaxFiles []*ast.File, acceptedPackages map[string]struct{}) []packageImportInfo {
+	var imports []packageImportInfo
+	for _, syntax := range syntaxFiles {
+		for _, importInfo := range syntax.Imports {
+			pathValue, err := strconv.Unquote(importInfo.Path.Value)
+			if err != nil {
+				panic(err)
+			}
+
+			aliasName := ""
+			usedName := path.Base(pathValue)
+			if importInfo.Name != nil {
+				aliasName = importInfo.Name.Name
+				usedName = aliasName
+			}
+
+			if _, ok := acceptedPackages[usedName]; !ok {
+				continue
+			}
+
+			imports = append(imports, packageImportInfo{
+				aliasName: aliasName,
+				path:      pathValue,
+			})
+		}
+	}
+	return imports
+}
+
+type importVisitor struct {
+	info         *types.Info
+	packageNames map[string]struct{}
+}
+
+func newImportVisitor(info *types.Info) *importVisitor {
+	return &importVisitor{
+		info:         info,
+		packageNames: map[string]struct{}{},
+	}
+}
+
+func (v *importVisitor) Visit(node ast.Node) ast.Visitor {
+	ident, ok := node.(*ast.Ident)
+	if !ok {
+		return v
+	}
+	object, ok := v.info.Uses[ident]
+	if !ok {
+		return v
+	}
+	pkgName, ok := object.(*types.PkgName)
+	if !ok {
+		return v
+	}
+	v.packageNames[pkgName.Name()] = struct{}{}
+	return v
+}
+
 func loadPackageTypeData(pattern string, interfaceName string) (packageTypeInfo, error) {
 	mode := packages.NeedName | packages.NeedSyntax | packages.NeedCompiledGoFiles |
-		packages.NeedTypes | packages.NeedTypesInfo | packages.NeedImports
+		packages.NeedTypes | packages.NeedTypesInfo
 
 	pkgList, err := packages.Load(&packages.Config{
 		Mode: mode,
@@ -136,19 +226,10 @@ func loadPackageTypeData(pattern string, interfaceName string) (packageTypeInfo,
 		return packageTypeInfo{}, err
 	}
 
-	var imports []packageImportInfo
-	for _, syntax := range foundPkg.Syntax {
-		for _, importInfo := range syntax.Imports {
-			aliasName := ""
-			if importInfo.Name != nil {
-				aliasName = importInfo.Name.Name
-			}
-			imports = append(imports, packageImportInfo{
-				aliasName: aliasName,
-				path:      importInfo.Path.Value,
-			})
-		}
-	}
+	visitor := newImportVisitor(foundPkg.TypesInfo)
+	ast.Walk(visitor, interfaceType)
+
+	imports := getImportInfos(foundPkg.Syntax, visitor.packageNames)
 
 	methods := make([]packageTypeMethod, 0, len(interfaceType.Methods.List))
 	for _, field := range interfaceType.Methods.List {
@@ -157,8 +238,8 @@ func loadPackageTypeData(pattern string, interfaceName string) (packageTypeInfo,
 			continue
 		}
 
-		params := fieldListToTupleList(funcType.Params, foundPkg.Fset, fileMap)
-		results := fieldListToTupleList(funcType.Results, foundPkg.Fset, fileMap)
+		params := fieldListToTupleList(funcType.Params, foundPkg.Fset, fileMap, foundPkg.TypesInfo)
+		results := fieldListToTupleList(funcType.Results, foundPkg.Fset, fileMap, foundPkg.TypesInfo)
 
 		methods = append(methods, packageTypeMethod{
 			name:    field.Names[0].Name,
