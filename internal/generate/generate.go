@@ -127,23 +127,32 @@ func readFiles(files []string) map[string]string {
 	return fileMap
 }
 
-func findInterfaceType(interfaceName string, syntax []*ast.File) (*ast.InterfaceType, error) {
-	var foundTypeSpec *ast.TypeSpec
-	for _, syntax := range syntax {
-		for _, decl := range syntax.Decls {
-			genDecl, ok := decl.(*ast.GenDecl)
+func findInterfaceTypeForDecl(interfaceName string, syntax *ast.File) *ast.TypeSpec {
+	for _, decl := range syntax.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok {
+			continue
+		}
+		for _, spec := range genDecl.Specs {
+			typeSpec, ok := spec.(*ast.TypeSpec)
 			if !ok {
 				continue
 			}
-			for _, spec := range genDecl.Specs {
-				typeSpec, ok := spec.(*ast.TypeSpec)
-				if !ok {
-					continue
-				}
-				if typeSpec.Name.Name == interfaceName {
-					foundTypeSpec = typeSpec
-				}
+			if typeSpec.Name.Name == interfaceName {
+				return typeSpec
 			}
+		}
+	}
+	return nil
+}
+
+func findInterfaceType(interfaceName string, syntaxFiles []*ast.File) (*ast.InterfaceType, error) {
+	var foundTypeSpec *ast.TypeSpec
+	for _, syntax := range syntaxFiles {
+		typeSpec := findInterfaceTypeForDecl(interfaceName, syntax)
+		if typeSpec != nil {
+			foundTypeSpec = typeSpec
+			break
 		}
 	}
 

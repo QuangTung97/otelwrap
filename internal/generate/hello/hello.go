@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// User ...
 type User struct {
 	ID        int64
 	Name      string
@@ -15,6 +16,7 @@ type User struct {
 	IsValid   sql.NullBool
 }
 
+// Processor ...
 type Processor interface {
 	DoA(ctx context.Context, n int) error
 	Handle(ctx context.Context, u *User) error

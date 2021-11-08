@@ -127,7 +127,6 @@ func getNextVariableName(name string, index int) string {
 		return name
 	}
 	return fmt.Sprintf("%s%d", name, index)
-
 }
 
 func getVariableName(

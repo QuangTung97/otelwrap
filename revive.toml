@@ -1,0 +1,34 @@
+severity = "error"
+confidence = 0.8
+
+# Sets the error code for failures with severity "error"
+errorCode = 2
+# Sets the error code for failures with severity "warning"
+warningCode = 1
+
+# Enable all available rules
+enableAllRules = true
+
+# Disabled rules
+[rule.file-header]
+    Disabled = true
+[rule.max-public-structs]
+    Disabled = true
+[rule.function-length]
+    Disabled = true
+[rule.add-constant]
+    Disabled = true
+
+# Rule tuning
+[rule.argument-limit]
+    Arguments = [6]
+[rule.cyclomatic]
+    Arguments = [10]
+[rule.cognitive-complexity]
+    Arguments = [14]
+[rule.function-result-limit]
+    Arguments = [4]
+[rule.unhandled-error]
+    Arguments = ["fmt.Printf", "fmt.Println"]
+[rule.line-length-limit]
+    Arguments = [120]
