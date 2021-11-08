@@ -35,6 +35,7 @@ type methodType struct {
 
 type importInfo struct {
 	aliasName string
+	usedName  string
 	path      string
 }
 
@@ -176,6 +177,7 @@ func getImportInfos(syntaxFiles []*ast.File, acceptedPackages map[string]struct{
 			imports = append(imports, importInfo{
 				aliasName: aliasName,
 				path:      pathValue,
+				usedName:  usedName,
 			})
 		}
 	}

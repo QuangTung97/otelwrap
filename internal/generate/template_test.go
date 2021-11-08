@@ -7,6 +7,99 @@ import (
 	"testing"
 )
 
+func TestCollectVariables(t *testing.T) {
+	result := collectVariables(packageTypeInfo{
+		name: "example",
+		imports: []importInfo{
+			{
+				aliasName: "",
+				path:      "context",
+				usedName:  "context",
+			},
+		},
+		interfaces: []interfaceInfo{
+			{
+				name: "Generator",
+				methods: []methodType{
+					{
+						name: "Hello",
+						params: []tupleType{
+							{
+								name:       "ctx",
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+							},
+							{
+								name:    "id",
+								typeStr: "int64",
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	assert.Equal(t, templateVariables{
+		globalVariables: map[string]struct{}{
+			"example":   {},
+			"context":   {},
+			"Generator": {},
+		},
+		interfaces: []templateInterfaceVariables{
+			{
+				name: "Generator",
+				methods: []templateMethodVariables{
+					{
+						variables: map[string]recognizedType{
+							"Hello": recognizedTypeUnknown,
+							"ctx":   recognizedTypeContext,
+							"id":    recognizedTypeUnknown,
+						},
+					},
+				},
+			},
+		},
+	}, result)
+}
+
+func TestGetVariableName(t *testing.T) {
+	name := getVariableName(
+		map[string]struct{}{},
+		map[string]recognizedType{}, 0, recognizedTypeUnknown)
+	assert.Equal(t, "a", name)
+
+	name = getVariableName(
+		map[string]struct{}{},
+		map[string]recognizedType{}, 1, recognizedTypeUnknown)
+	assert.Equal(t, "b", name)
+
+	name = getVariableName(
+		map[string]struct{}{},
+		map[string]recognizedType{}, 0, recognizedTypeContext)
+	assert.Equal(t, "ctx", name)
+
+	name = getVariableName(
+		map[string]struct{}{},
+		map[string]recognizedType{}, 0, recognizedTypeError)
+	assert.Equal(t, "err", name)
+
+	name = getVariableName(
+		map[string]struct{}{},
+		map[string]recognizedType{
+			"ctx": recognizedTypeContext,
+		}, 0, recognizedTypeContext)
+	assert.Equal(t, "ctx1", name)
+
+	name = getVariableName(
+		map[string]struct{}{
+			"ctx": {},
+		},
+		map[string]recognizedType{
+			"ctx1": recognizedTypeContext,
+		}, 0, recognizedTypeContext)
+	assert.Equal(t, "ctx2", name)
+}
+
 func TestGenerateCode(t *testing.T) {
 	var buf bytes.Buffer
 	err := generateCode(&buf, packageTypeInfo{

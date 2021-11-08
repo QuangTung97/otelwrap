@@ -69,6 +69,95 @@ type templatePackageInfo struct {
 	Interfaces  []templateInterface
 }
 
+type templateMethodVariables struct {
+	variables map[string]recognizedType
+}
+
+type templateInterfaceVariables struct {
+	name    string
+	methods []templateMethodVariables
+}
+
+type templateVariables struct {
+	globalVariables map[string]struct{}
+	interfaces      []templateInterfaceVariables
+}
+
+func collectVariables(info packageTypeInfo) templateVariables {
+	global := map[string]struct{}{}
+	global[info.name] = struct{}{}
+
+	for _, importDetail := range info.imports {
+		global[importDetail.usedName] = struct{}{}
+	}
+
+	interfaces := make([]templateInterfaceVariables, 0, len(info.interfaces))
+	for _, interfaceDetail := range info.interfaces {
+		global[interfaceDetail.name] = struct{}{}
+
+		var methods []templateMethodVariables
+		for _, method := range interfaceDetail.methods {
+			variables := map[string]recognizedType{
+				method.name: recognizedTypeUnknown,
+			}
+
+			for _, param := range method.params {
+				variables[param.name] = param.recognized
+			}
+
+			methods = append(methods, templateMethodVariables{
+				variables: variables,
+			})
+		}
+
+		interfaces = append(interfaces, templateInterfaceVariables{
+			name:    interfaceDetail.name,
+			methods: methods,
+		})
+	}
+
+	return templateVariables{
+		globalVariables: global,
+		interfaces:      interfaces,
+	}
+}
+
+func getNextVariableName(name string, index int) string {
+	if index == 0 {
+		return name
+	}
+	return fmt.Sprintf("%s%d", name, index)
+
+}
+
+func getVariableName(
+	global map[string]struct{},
+	local map[string]recognizedType,
+	index int, expectedType recognizedType,
+) string {
+	var recommendedName string
+	switch expectedType {
+	case recognizedTypeContext:
+		recommendedName = "ctx"
+	case recognizedTypeError:
+		recommendedName = "err"
+	default:
+		ch := 'a' + index
+		recommendedName = fmt.Sprintf("%c", ch)
+	}
+
+	for retryIndex := 0; ; retryIndex++ {
+		name := getNextVariableName(recommendedName, retryIndex)
+		if _, existed := global[name]; existed {
+			continue
+		}
+		if _, existed := local[name]; existed {
+			continue
+		}
+		return name
+	}
+}
+
 func generateFieldListString(fields []tupleType) (string, bool) {
 	var fieldList []string
 

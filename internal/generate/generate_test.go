@@ -117,13 +117,16 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 			{
 				aliasName: "",
 				path:      "context",
+				usedName:  "context",
 			},
 			{
 				aliasName: "otelgo",
 				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/otel",
+				usedName:  "otelgo",
 			}, {
 				aliasName: "otelgosdk",
 				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk",
+				usedName:  "otelgosdk",
 			},
 		},
 		interfaces: []interfaceInfo{interface1},
