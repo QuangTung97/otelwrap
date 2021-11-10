@@ -235,17 +235,26 @@ func generateArgsString(fields []tupleType) string {
 	return strings.Join(args, ", ")
 }
 
+func preventShadowMethodRecv(
+	global map[string]struct{},
+	local map[string]recognizedType,
+	tuples []tupleType,
+) {
+	for i, t := range tuples {
+		if t.name == "w" {
+			newName := getVariableName(global, local, 0, t.recognized)
+			tuples[i].name = newName
+		}
+	}
+}
+
 func generateCodeForMethod(
 	global map[string]struct{},
 	local map[string]recognizedType,
 	method methodType,
 ) templateMethod {
-	for i, param := range method.params {
-		if param.name == "w" {
-			newName := getVariableName(global, local, 0, recognizedTypeUnknown)
-			method.params[i].name = newName
-		}
-	}
+	preventShadowMethodRecv(global, local, method.params)
+	preventShadowMethodRecv(global, local, method.results)
 
 	paramsStr, _ := generateFieldListString(method.params)
 	paramsStr = fmt.Sprintf("(%s)", paramsStr)

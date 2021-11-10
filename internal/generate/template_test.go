@@ -413,6 +413,27 @@ func TestGenerateCode_W_In_Param(t *testing.T) {
 							},
 						},
 					},
+					{
+						name: "ReturnW",
+						params: []tupleType{
+							{
+								name:       "ctx",
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+							},
+						},
+						results: []tupleType{
+							{
+								name:       "w",
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+							},
+							{
+								typeStr:    "error",
+								recognized: recognizedTypeError,
+							},
+						},
+					},
 				},
 			},
 		},
@@ -459,6 +480,19 @@ func (w *HandlerWrapper) UseW(ctx context.Context, a int64) (err error) {
 		span.SetStatus(codes.Error, err.Error())
 	}
 	return err
+}
+
+// ReturnW ...
+func (w *HandlerWrapper) ReturnW(ctx context.Context) (ctx1 context.Context, err error) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "ReturnW")
+	defer span.End()
+
+	ctx1, err = w.Handler.ReturnW(ctx)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return ctx1, err
 }
 `, buf.String())
 }
