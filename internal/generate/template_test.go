@@ -7,6 +7,138 @@ import (
 	"testing"
 )
 
+func TestAssignVariableNames(t *testing.T) {
+	result := assignVariableNames(packageTypeInfo{
+		name: "example",
+		imports: []importInfo{
+			{
+				aliasName: "",
+				path:      "context",
+				usedName:  "context",
+			},
+		},
+		interfaces: []interfaceInfo{
+			{
+				name: "Generator",
+				methods: []methodType{
+					{
+						name: "Hello",
+						params: []tupleType{
+							{
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+							},
+							{
+								typeStr: "int64",
+							},
+							{
+								typeStr: "string",
+							},
+						},
+						results: []tupleType{
+							{
+								typeStr: "bool",
+							},
+							{
+								typeStr:    "error",
+								recognized: recognizedTypeError,
+							},
+						},
+					},
+					{
+						name: "DoA",
+						params: []tupleType{
+							{
+								name:       "ctx",
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+							},
+							{
+								name:    "n",
+								typeStr: "int64",
+							},
+						},
+						results: []tupleType{
+							{
+								name:       "err",
+								typeStr:    "error",
+								recognized: recognizedTypeError,
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	assert.Equal(t, packageTypeInfo{
+		name: "example",
+		imports: []importInfo{
+			{
+				aliasName: "",
+				path:      "context",
+				usedName:  "context",
+			},
+		},
+		interfaces: []interfaceInfo{
+			{
+				name: "Generator",
+				methods: []methodType{
+					{
+						name: "Hello",
+						params: []tupleType{
+							{
+								name:       "ctx",
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+							},
+							{
+								name:    "a",
+								typeStr: "int64",
+							},
+							{
+								name:    "b",
+								typeStr: "string",
+							},
+						},
+						results: []tupleType{
+							{
+								name:    "a1",
+								typeStr: "bool",
+							},
+							{
+								name:       "err",
+								typeStr:    "error",
+								recognized: recognizedTypeError,
+							},
+						},
+					},
+					{
+						name: "DoA",
+						params: []tupleType{
+							{
+								name:       "ctx",
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+							},
+							{
+								name:    "n",
+								typeStr: "int64",
+							},
+						},
+						results: []tupleType{
+							{
+								name:       "err",
+								typeStr:    "error",
+								recognized: recognizedTypeError,
+							},
+						},
+					},
+				},
+			},
+		},
+	}, result)
+}
+
 func TestCollectVariables(t *testing.T) {
 	result := collectVariables(packageTypeInfo{
 		name: "example",

@@ -122,6 +122,49 @@ func collectVariables(info packageTypeInfo) templateVariables {
 	}
 }
 
+func assignVariableNamesForMethod(
+	global map[string]struct{},
+	local map[string]recognizedType,
+	method methodType,
+) {
+	for i, param := range method.params {
+		if param.name != "" {
+			continue
+		}
+
+		varName := getVariableName(
+			global, local,
+			i-1, param.recognized,
+		)
+		method.params[i].name = varName
+		local[varName] = param.recognized
+	}
+
+	for i, result := range method.results {
+		if result.name != "" {
+			continue
+		}
+
+		varName := getVariableName(
+			global, local,
+			i, result.recognized,
+		)
+		method.results[i].name = varName
+	}
+}
+
+func assignVariableNames(info packageTypeInfo) packageTypeInfo {
+	variables := collectVariables(info)
+
+	for interfaceIndex, interfaceDetail := range info.interfaces {
+		for methodIndex, method := range interfaceDetail.methods {
+			local := variables.interfaces[interfaceIndex].methods[methodIndex].variables
+			assignVariableNamesForMethod(variables.globalVariables, local, method)
+		}
+	}
+	return info
+}
+
 func getNextVariableName(name string, index int) string {
 	if index == 0 {
 		return name
