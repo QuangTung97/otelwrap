@@ -351,3 +351,114 @@ func (w *HandlerWrapper) WithReturn(rootCtx context.Context, n int, span string)
 }
 `, buf.String())
 }
+
+func TestGenerateCode_W_In_Param(t *testing.T) {
+	var buf bytes.Buffer
+	err := generateCode(&buf, packageTypeInfo{
+		name: "example",
+		imports: []importInfo{
+			{
+				path: "context",
+			},
+			{
+				path: "time",
+			},
+		},
+		interfaces: []interfaceInfo{
+			{
+				name: "Handler",
+				methods: []methodType{
+					{
+						name: "Hello",
+						params: []tupleType{
+							{
+								name:       "ctx",
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+							},
+							{
+								name:    "n",
+								typeStr: "int",
+							},
+							{
+								name:    "createdAt",
+								typeStr: "time.Time",
+							},
+						},
+						results: []tupleType{
+							{
+								name:       "",
+								typeStr:    "error",
+								recognized: recognizedTypeError,
+							},
+						},
+					},
+					{
+						name: "UseW",
+						params: []tupleType{
+							{
+								name:       "ctx",
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+							},
+							{
+								name:    "w",
+								typeStr: "int64",
+							},
+						},
+						results: []tupleType{
+							{
+								typeStr:    "error",
+								recognized: recognizedTypeError,
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	assert.Equal(t, nil, err)
+	fmt.Println("ERR:", err)
+	assert.Equal(t, `
+package example
+
+import (
+	"context"
+	"time"
+	"go.opentelemetry.io/otel/trace"
+)
+
+// HandlerWrapper wraps OpenTelemetry's span
+type HandlerWrapper struct {
+	Handler
+	tracer trace.Tracer
+	prefix string
+}
+
+// Hello ...
+func (w *HandlerWrapper) Hello(ctx context.Context, n int, createdAt time.Time) (err error) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "Hello")
+	defer span.End()
+
+	err = w.Handler.Hello(ctx, n, createdAt)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return err
+}
+
+// UseW ...
+func (w *HandlerWrapper) UseW(ctx context.Context, a int64) (err error) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "UseW")
+	defer span.End()
+
+	err = w.Handler.UseW(ctx, a)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return err
+}
+`, buf.String())
+}

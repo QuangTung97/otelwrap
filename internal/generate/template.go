@@ -240,6 +240,13 @@ func generateCodeForMethod(
 	local map[string]recognizedType,
 	method methodType,
 ) templateMethod {
+	for i, param := range method.params {
+		if param.name == "w" {
+			newName := getVariableName(global, local, 0, recognizedTypeUnknown)
+			method.params[i].name = newName
+		}
+	}
+
 	paramsStr, _ := generateFieldListString(method.params)
 	paramsStr = fmt.Sprintf("(%s)", paramsStr)
 
