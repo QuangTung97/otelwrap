@@ -18,6 +18,9 @@ const (
 	recognizedTypeUnknown recognizedType = iota
 	recognizedTypeContext
 	recognizedTypeError
+
+	// only for generating
+	recognizedTypeSpan
 )
 
 type tupleType struct {

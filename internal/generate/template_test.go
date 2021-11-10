@@ -277,13 +277,17 @@ func TestGenerateCode(t *testing.T) {
 						name: "WithReturn",
 						params: []tupleType{
 							{
-								name:       "ctx",
+								name:       "rootCtx",
 								typeStr:    "context.Context",
 								recognized: recognizedTypeContext,
 							},
 							{
 								name:    "n",
 								typeStr: "int",
+							},
+							{
+								name:    "span",
+								typeStr: "string",
 							},
 						},
 						results: []tupleType{
@@ -321,11 +325,11 @@ type HandlerWrapper struct {
 }
 
 // Hello ...
-func (w *HandlerWrapper) Hello(ctx context.Context, n int, createdAt time.Time) error {
+func (w *HandlerWrapper) Hello(ctx context.Context, n int, createdAt time.Time) (err error) {
 	ctx, span := w.tracer.Start(ctx, w.prefix + "Hello")
 	defer span.End()
 
-	err := w.Handler.Hello(ctx, n, createdAt)
+	err = w.Handler.Hello(ctx, n, createdAt)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
@@ -334,14 +338,14 @@ func (w *HandlerWrapper) Hello(ctx context.Context, n int, createdAt time.Time) 
 }
 
 // WithReturn ...
-func (w *HandlerWrapper) WithReturn(ctx context.Context, n int) (count int64, err error) {
-	ctx, span := w.tracer.Start(ctx, w.prefix + "WithReturn")
-	defer span.End()
+func (w *HandlerWrapper) WithReturn(rootCtx context.Context, n int, span string) (count int64, err error) {
+	rootCtx, span1 := w.tracer.Start(rootCtx, w.prefix + "WithReturn")
+	defer span1.End()
 
-	count, err := w.Handler.WithReturn(ctx, n)
+	count, err = w.Handler.WithReturn(rootCtx, n, span)
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
+		span1.RecordError(err)
+		span1.SetStatus(codes.Error, err.Error())
 	}
 	return count, err
 }

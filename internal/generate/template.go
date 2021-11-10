@@ -24,13 +24,13 @@ type {{ .StructName }} struct {
 {{ range .Methods }}
 // {{ .Name }} ...
 func (w *{{ $interface.StructName }}) {{ .Name }}{{ .ParamsString }} {{ .ResultsString }} {
-	ctx, span := w.tracer.Start(ctx, w.prefix + "{{ .Name }}")
-	defer span.End()
+	{{ .CtxName }}, {{ .SpanName }} := w.tracer.Start({{ .CtxName }}, w.prefix + "{{ .Name }}")
+	defer {{ .SpanName }}.End()
 
-	{{ .ResultsRecvString }} := w.{{ $interface.Name }}.{{ .Name }}({{ .ArgsString }})
+	{{ .ResultsRecvString }} = w.{{ $interface.Name }}.{{ .Name }}({{ .ArgsString }})
 	if {{ .ErrString }} != nil {
-		span.RecordError({{ .ErrString }})
-		span.SetStatus(codes.Error, {{ .ErrString }}.Error())
+		{{ .SpanName }}.RecordError({{ .ErrString }})
+		{{ .SpanName }}.SetStatus(codes.Error, {{ .ErrString }}.Error())
 	}
 	return {{ .ResultsRecvString }}
 }
@@ -49,11 +49,14 @@ func initTemplate() *template.Template {
 var resultTemplate = initTemplate()
 
 type templateMethod struct {
-	Name              string
+	Name     string
+	CtxName  string
+	SpanName string
+
 	ParamsString      string
 	ResultsString     string
 	ArgsString        string
-	ResultsRecvString string
+	ResultsRecvString string // including assignment
 	ErrString         string
 }
 
@@ -183,6 +186,8 @@ func getVariableName(
 		recommendedName = "ctx"
 	case recognizedTypeError:
 		recommendedName = "err"
+	case recognizedTypeSpan:
+		recommendedName = "span"
 	default:
 		ch := 'a' + index
 		recommendedName = fmt.Sprintf("%c", ch)
@@ -230,52 +235,69 @@ func generateArgsString(fields []tupleType) string {
 	return strings.Join(args, ", ")
 }
 
-func generateResultsRecvString(fields []tupleType) (s string, errStr string) {
-	var results []string
-	for _, f := range fields {
-		name := f.name
+func generateCodeForMethod(
+	global map[string]struct{},
+	local map[string]recognizedType,
+	method methodType,
+) templateMethod {
+	paramsStr, _ := generateFieldListString(method.params)
+	paramsStr = fmt.Sprintf("(%s)", paramsStr)
 
-		if f.recognized == recognizedTypeError {
-			errStr = "err"
+	ctxName := ""
+	for _, param := range method.params {
+		if param.recognized == recognizedTypeContext {
+			ctxName = param.name
+			break
 		}
-
-		if f.name == "" && f.recognized == recognizedTypeError {
-			name = "err"
-		}
-		results = append(results, name)
 	}
-	return strings.Join(results, ", "), errStr
+
+	resultsStr, needBracket := generateFieldListString(method.results)
+	if needBracket {
+		resultsStr = fmt.Sprintf("(%s)", resultsStr)
+	}
+
+	errStr := ""
+	var recvVars []string
+	for _, result := range method.results {
+		recvVars = append(recvVars, result.name)
+		if result.recognized == recognizedTypeError {
+			errStr = result.name
+		}
+	}
+
+	spanName := getVariableName(global, local, 0, recognizedTypeSpan)
+
+	return templateMethod{
+		Name:     method.name,
+		CtxName:  ctxName,
+		SpanName: spanName,
+
+		ParamsString:      paramsStr,
+		ResultsString:     resultsStr,
+		ArgsString:        generateArgsString(method.params),
+		ResultsRecvString: strings.Join(recvVars, ", "),
+		ErrString:         errStr,
+	}
 }
 
 func generateCode(writer io.Writer, info packageTypeInfo) error {
+	info = assignVariableNames(info)
+
 	var imports []string
 	for _, importDetail := range info.imports {
 		imports = append(imports, fmt.Sprintf(`"%s"`, importDetail.path))
 	}
 	imports = append(imports, `"go.opentelemetry.io/otel/trace"`)
 
+	variables := collectVariables(info)
+	global := variables.globalVariables
+
 	var interfaces []templateInterface
-	for _, interfaceDetail := range info.interfaces {
+	for interfaceIndex, interfaceDetail := range info.interfaces {
 		var methods []templateMethod
-		for _, method := range interfaceDetail.methods {
-			paramsStr, _ := generateFieldListString(method.params)
-			paramsStr = fmt.Sprintf("(%s)", paramsStr)
-
-			resultsStr, needBracket := generateFieldListString(method.results)
-			if needBracket {
-				resultsStr = fmt.Sprintf("(%s)", resultsStr)
-			}
-
-			recvStr, errStr := generateResultsRecvString(method.results)
-
-			methods = append(methods, templateMethod{
-				Name:              method.name,
-				ParamsString:      paramsStr,
-				ResultsString:     resultsStr,
-				ArgsString:        generateArgsString(method.params),
-				ResultsRecvString: recvStr,
-				ErrString:         errStr,
-			})
+		for methodIndex, method := range interfaceDetail.methods {
+			local := variables.interfaces[interfaceIndex].methods[methodIndex].variables
+			methods = append(methods, generateCodeForMethod(global, local, method))
 		}
 
 		interfaces = append(interfaces, templateInterface{
