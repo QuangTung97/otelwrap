@@ -304,6 +304,7 @@ func generateCode(writer io.Writer, info packageTypeInfo) error {
 		imports = append(imports, fmt.Sprintf(`"%s"`, importDetail.path))
 	}
 	imports = append(imports, `"go.opentelemetry.io/otel/trace"`)
+	imports = append(imports, `"go.opentelemetry.io/otel/codes"`)
 
 	variables := collectVariables(info)
 	global := variables.globalVariables

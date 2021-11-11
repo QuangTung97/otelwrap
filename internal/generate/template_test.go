@@ -315,6 +315,7 @@ import (
 	"context"
 	"time"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 )
 
 // HandlerWrapper wraps OpenTelemetry's span
@@ -447,6 +448,7 @@ import (
 	"context"
 	"time"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 )
 
 // HandlerWrapper wraps OpenTelemetry's span
