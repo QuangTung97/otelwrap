@@ -28,6 +28,10 @@ type tupleType struct {
 	typeStr    string
 	recognized recognizedType
 	isVariadic bool
+
+	pkgPath  string
+	pkgBegin int
+	pkgEnd   int
 }
 
 type methodType struct {
@@ -48,7 +52,9 @@ type interfaceInfo struct {
 }
 
 type packageTypeInfo struct {
-	name       string
+	name string
+	path string
+
 	imports    []importInfo
 	interfaces []interfaceInfo
 }
@@ -67,6 +73,41 @@ func getRecognizedType(field *ast.Field, info *types.Info) recognizedType {
 		}
 	}
 	return recognizedTypeUnknown
+}
+
+type tupleVisitor struct {
+	begin token.Pos
+	info  *types.Info
+
+	packagePath  string
+	packageBegin int
+	packageEnd   int
+
+	identBegin int
+}
+
+func (v *tupleVisitor) Visit(node ast.Node) ast.Visitor {
+	ident, ok := node.(*ast.Ident)
+	if !ok {
+		return v
+	}
+	object, ok := v.info.Uses[ident]
+	if !ok {
+		return v
+	}
+	_, ok = object.(*types.PkgName)
+	if ok {
+		v.packageBegin = int(ident.Pos() - v.begin)
+		v.packageEnd = int(ident.End() - v.begin)
+		return v
+	}
+
+	pkg := object.Pkg()
+	if pkg != nil {
+		v.identBegin = int(ident.Pos() - v.begin)
+		v.packagePath = pkg.Path()
+	}
+	return v
 }
 
 func fieldListToTupleList(
@@ -92,21 +133,31 @@ func fieldListToTupleList(
 			isVariadic = true
 		}
 
+		visitor := &tupleVisitor{begin: field.Type.Pos(), info: info}
+		ast.Walk(visitor, field.Type)
+		if visitor.packagePath != "" && visitor.packageEnd == 0 {
+			visitor.packageBegin = visitor.identBegin
+			visitor.packageEnd = visitor.identBegin
+		}
+
 		recognized := getRecognizedType(field, info)
+		tupleTemplate := tupleType{
+			typeStr:    typeStr,
+			recognized: recognized,
+			isVariadic: isVariadic,
+
+			pkgPath:  visitor.packagePath,
+			pkgBegin: visitor.packageBegin,
+			pkgEnd:   visitor.packageEnd,
+		}
+
 		for _, resultName := range field.Names {
-			tuples = append(tuples, tupleType{
-				name:       resultName.Name,
-				typeStr:    typeStr,
-				recognized: recognized,
-				isVariadic: isVariadic,
-			})
+			tuple := tupleTemplate
+			tuple.name = resultName.Name
+			tuples = append(tuples, tuple)
 		}
 		if len(field.Names) == 0 {
-			tuples = append(tuples, tupleType{
-				typeStr:    typeStr,
-				recognized: recognized,
-				isVariadic: isVariadic,
-			})
+			tuples = append(tuples, tupleTemplate)
 		}
 	}
 	return tuples
@@ -305,6 +356,7 @@ func loadPackageTypeData(pattern string, interfaceNames ...string) (packageTypeI
 
 	return packageTypeInfo{
 		name:       foundPkg.Name,
+		path:       foundPkg.PkgPath,
 		imports:    imports,
 		interfaces: interfaces,
 	}, nil

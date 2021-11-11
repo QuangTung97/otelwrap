@@ -19,6 +19,9 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 						name:       "ctx",
 						typeStr:    "context.Context",
 						recognized: recognizedTypeContext,
+						pkgPath:    "context",
+						pkgBegin:   0,
+						pkgEnd:     len("context"),
 					},
 					{
 						name:    "n",
@@ -39,10 +42,15 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 						name:       "ctx",
 						typeStr:    "context.Context",
 						recognized: recognizedTypeContext,
+						pkgPath:    "context",
+						pkgEnd:     len("context"),
 					},
 					{
-						name:    "u",
-						typeStr: "*User",
+						name:     "u",
+						typeStr:  "*User",
+						pkgPath:  "github.com/QuangTung97/otelwrap/internal/generate/hello",
+						pkgBegin: 1,
+						pkgEnd:   1,
 					},
 				},
 				results: []tupleType{
@@ -59,6 +67,8 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 						name:       "ctx",
 						typeStr:    "context.Context",
 						recognized: recognizedTypeContext,
+						pkgPath:    "context",
+						pkgEnd:     len("context"),
 					},
 					{
 						name:    "id",
@@ -67,11 +77,15 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 					{
 						name:    "content",
 						typeStr: "otelgosdk.Content",
+						pkgPath: "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk",
+						pkgEnd:  len("otelgosdk"),
 					},
 				},
 				results: []tupleType{
 					{
 						typeStr: "otelgo.Person",
+						pkgPath: "github.com/QuangTung97/otelwrap/internal/generate/hello/otel",
+						pkgEnd:  len("otelgo"),
 					},
 					{
 						typeStr:    "error",
@@ -85,6 +99,8 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 					{
 						typeStr:    "context.Context",
 						recognized: recognizedTypeContext,
+						pkgPath:    "context",
+						pkgEnd:     len("context"),
 					},
 					{
 						typeStr: "int",
@@ -99,6 +115,8 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 						name:       "ctx",
 						typeStr:    "context.Context",
 						recognized: recognizedTypeContext,
+						pkgPath:    "context",
+						pkgEnd:     len("context"),
 					},
 					{
 						name:       "params",
@@ -108,11 +126,43 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 				},
 				results: nil,
 			},
+			{
+				name: "UseArray",
+				params: []tupleType{
+					{
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
+						pkgPath:    "context",
+						pkgEnd:     len("context"),
+					},
+					{
+						name:     "contents",
+						typeStr:  "[]*otelgosdk.Content",
+						pkgPath:  "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk",
+						pkgBegin: 3,
+						pkgEnd:   3 + len("otelgosdk"),
+					},
+				},
+				results: []tupleType{
+					{
+						name:    "",
+						typeStr: "User",
+						pkgPath: "github.com/QuangTung97/otelwrap/internal/generate/hello",
+					},
+					{
+						name:       "",
+						typeStr:    "error",
+						recognized: recognizedTypeError,
+					},
+				},
+			},
 		},
 	}
 
 	assert.Equal(t, packageTypeInfo{
 		name: "hello",
+		path: "github.com/QuangTung97/otelwrap/internal/generate/hello",
 		imports: []importInfo{
 			{
 				aliasName: "",

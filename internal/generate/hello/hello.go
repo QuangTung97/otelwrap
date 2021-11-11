@@ -23,4 +23,5 @@ type Processor interface {
 	Get(ctx context.Context, id int64, content otelgosdk.Content) (otelgo.Person, error)
 	NoName(context.Context, int)
 	ManyParams(ctx context.Context, params ...string)
+	UseArray(ctx context.Context, contents []*otelgosdk.Content) (User, error)
 }
