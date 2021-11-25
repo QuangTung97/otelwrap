@@ -238,10 +238,12 @@ func TestGenerateCode(t *testing.T) {
 		name: "example",
 		imports: []importInfo{
 			{
-				path: "context",
+				path:     "context",
+				usedName: "context",
 			},
 			{
-				path: "time",
+				path:     "time",
+				usedName: "time",
 			},
 		},
 		interfaces: []interfaceInfo{
@@ -255,6 +257,7 @@ func TestGenerateCode(t *testing.T) {
 								name:       "ctx",
 								typeStr:    "context.Context",
 								recognized: recognizedTypeContext,
+								pkgList:    pkgListContext(),
 							},
 							{
 								name:    "n",
@@ -263,6 +266,13 @@ func TestGenerateCode(t *testing.T) {
 							{
 								name:    "createdAt",
 								typeStr: "time.Time",
+								pkgList: []tupleTypePkg{
+									{
+										path:  "time",
+										begin: 0,
+										end:   len("time"),
+									},
+								},
 							},
 						},
 						results: []tupleType{
@@ -353,16 +363,27 @@ func (w *HandlerWrapper) WithReturn(rootCtx context.Context, n int, span string)
 `, buf.String())
 }
 
+//revive:disable:line-length-limit
 func TestGenerateCode_W_In_Param(t *testing.T) {
 	var buf bytes.Buffer
 	err := generateCode(&buf, packageTypeInfo{
 		name: "example",
 		imports: []importInfo{
 			{
-				path: "context",
+				path:     "context",
+				usedName: "context",
 			},
 			{
-				path: "time",
+				path:     "time",
+				usedName: "time",
+			},
+			{
+				path:     "sample/codes",
+				usedName: "codes",
+			},
+			{
+				path:     "sample/trace",
+				usedName: "trace",
 			},
 		},
 		interfaces: []interfaceInfo{
@@ -376,6 +397,7 @@ func TestGenerateCode_W_In_Param(t *testing.T) {
 								name:       "ctx",
 								typeStr:    "context.Context",
 								recognized: recognizedTypeContext,
+								pkgList:    pkgListContext(),
 							},
 							{
 								name:    "n",
@@ -384,6 +406,35 @@ func TestGenerateCode_W_In_Param(t *testing.T) {
 							{
 								name:    "createdAt",
 								typeStr: "time.Time",
+								pkgList: []tupleTypePkg{
+									{
+										path:  "time",
+										begin: 0,
+										end:   len("time"),
+									},
+								},
+							},
+							{
+								name:    "value",
+								typeStr: "*codes.Hello",
+								pkgList: []tupleTypePkg{
+									{
+										path:  "sample/codes",
+										begin: 1,
+										end:   1 + len("codes"),
+									},
+								},
+							},
+							{
+								name:    "t",
+								typeStr: "*trace.Hello",
+								pkgList: []tupleTypePkg{
+									{
+										path:  "sample/trace",
+										begin: 1,
+										end:   1 + len("trace"),
+									},
+								},
 							},
 						},
 						results: []tupleType{
@@ -401,6 +452,7 @@ func TestGenerateCode_W_In_Param(t *testing.T) {
 								name:       "ctx",
 								typeStr:    "context.Context",
 								recognized: recognizedTypeContext,
+								pkgList:    pkgListContext(),
 							},
 							{
 								name:    "w",
@@ -421,6 +473,7 @@ func TestGenerateCode_W_In_Param(t *testing.T) {
 								name:       "ctx",
 								typeStr:    "context.Context",
 								recognized: recognizedTypeContext,
+								pkgList:    pkgListContext(),
 							},
 						},
 						results: []tupleType{
@@ -428,6 +481,7 @@ func TestGenerateCode_W_In_Param(t *testing.T) {
 								name:       "w",
 								typeStr:    "context.Context",
 								recognized: recognizedTypeContext,
+								pkgList:    pkgListContext(),
 							},
 							{
 								typeStr:    "error",
@@ -447,26 +501,28 @@ package example
 import (
 	"context"
 	"time"
-	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/codes"
+	"sample/codes"
+	"sample/trace"
+	oteltrace "go.opentelemetry.io/otel/trace"
+	otelcodes "go.opentelemetry.io/otel/codes"
 )
 
 // HandlerWrapper wraps OpenTelemetry's span
 type HandlerWrapper struct {
 	Handler
-	tracer trace.Tracer
+	tracer oteltrace.Tracer
 	prefix string
 }
 
 // Hello ...
-func (w *HandlerWrapper) Hello(ctx context.Context, n int, createdAt time.Time) (err error) {
+func (w *HandlerWrapper) Hello(ctx context.Context, n int, createdAt time.Time, value *codes.Hello, t *trace.Hello) (err error) {
 	ctx, span := w.tracer.Start(ctx, w.prefix + "Hello")
 	defer span.End()
 
-	err = w.Handler.Hello(ctx, n, createdAt)
+	err = w.Handler.Hello(ctx, n, createdAt, value, t)
 	if err != nil {
 		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
+		span.SetStatus(otelcodes.Error, err.Error())
 	}
 	return err
 }
@@ -479,7 +535,7 @@ func (w *HandlerWrapper) UseW(ctx context.Context, a int64) (err error) {
 	err = w.Handler.UseW(ctx, a)
 	if err != nil {
 		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
+		span.SetStatus(otelcodes.Error, err.Error())
 	}
 	return err
 }
@@ -492,9 +548,11 @@ func (w *HandlerWrapper) ReturnW(ctx context.Context) (ctx1 context.Context, err
 	ctx1, err = w.Handler.ReturnW(ctx)
 	if err != nil {
 		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
+		span.SetStatus(otelcodes.Error, err.Error())
 	}
 	return ctx1, err
 }
 `, buf.String())
 }
+
+//revive:enable:line-length-limit

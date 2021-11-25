@@ -23,7 +23,29 @@ func newImporter() *importer {
 	}
 }
 
-func (i *importer) add(importDetail importInfo) {
+type addConfig struct {
+	prefix string
+}
+
+type addOption func(opts *addConfig)
+
+func withPreferPrefix(prefix string) addOption {
+	return func(conf *addConfig) {
+		conf.prefix = prefix
+	}
+}
+
+func computeImporterConfig(options ...addOption) addConfig {
+	conf := addConfig{}
+	for _, o := range options {
+		o(&conf)
+	}
+	return conf
+}
+
+func (i *importer) add(importDetail importInfo, options ...addOption) {
+	conf := computeImporterConfig(options...)
+
 	index, ok := i.importPaths[importDetail.path]
 	if ok {
 		return
@@ -37,8 +59,12 @@ func (i *importer) add(importDetail importInfo) {
 		if dir == "." {
 			newName = "std" + importDetail.usedName
 		} else {
-			base := path.Base(dir)
-			newName = base[:1] + importDetail.usedName
+			if conf.prefix == "" {
+				base := path.Base(dir)
+				newName = base[:1] + importDetail.usedName
+			} else {
+				newName = conf.prefix + importDetail.usedName
+			}
 		}
 
 		prevNewName := newName

@@ -185,3 +185,26 @@ func TestImporter_Same_UsedName_New_Name_Still_Existed_Suffix_2(t *testing.T) {
 		},
 	}, i.getImports())
 }
+
+func TestImporter_Same_UsedName_With_Prefer_Prefix(t *testing.T) {
+	i := newImporter()
+	i.add(importInfo{
+		usedName: "codes",
+		path:     "sample/codes",
+	})
+	i.add(importInfo{
+		usedName: "codes",
+		path:     "opentelemetry/codes",
+	}, withPreferPrefix("otel"))
+
+	assert.Equal(t, []importClause{
+		{
+			aliasName: "",
+			path:      "sample/codes",
+		},
+		{
+			aliasName: "otelcodes",
+			path:      "opentelemetry/codes",
+		},
+	}, i.getImports())
+}
