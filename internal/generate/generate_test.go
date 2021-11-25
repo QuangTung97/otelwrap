@@ -157,8 +157,8 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 						pkgList: []tupleTypePkg{
 							{
 								path:  "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk",
-								begin: 3,
-								end:   3 + len("otelgosdk"),
+								begin: len("[]*"),
+								end:   len("[]*") + len("otelgosdk"),
 							},
 						},
 					},
@@ -177,6 +177,50 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 						name:       "",
 						typeStr:    "error",
 						recognized: recognizedTypeError,
+					},
+				},
+			},
+			{
+				name: "UseMap",
+				params: []tupleType{
+					{
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
+						pkgList:    pkgListContext(),
+					},
+					{
+						name:    "m",
+						typeStr: "map[otelgosdk.Content]otelgosdk.Content",
+						pkgList: []tupleTypePkg{
+							{
+								path:  "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk",
+								begin: len("map["),
+								end:   len("map[") + len("otelgosdk"),
+							},
+							{
+								path:  "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk",
+								begin: len("map[otelgosdk.Content]"),
+								end:   len("map[otelgosdk.Content]") + len("otelgosdk"),
+							},
+						},
+					},
+				},
+				results: []tupleType{
+					{
+						typeStr: "map[User]User",
+						pkgList: []tupleTypePkg{
+							{
+								path:  "github.com/QuangTung97/otelwrap/internal/generate/hello",
+								begin: len("map["),
+								end:   len("map["),
+							},
+							{
+								path:  "github.com/QuangTung97/otelwrap/internal/generate/hello",
+								begin: len("map[User]"),
+								end:   len("map[User]"),
+							},
+						},
 					},
 				},
 			},

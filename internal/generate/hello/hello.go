@@ -24,4 +24,5 @@ type Processor interface {
 	NoName(context.Context, int)
 	ManyParams(ctx context.Context, params ...string)
 	UseArray(ctx context.Context, contents []*otelgosdk.Content) (User, error)
+	UseMap(ctx context.Context, m map[otelgosdk.Content]otelgosdk.Content) map[User]User
 }
