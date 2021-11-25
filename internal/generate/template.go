@@ -215,28 +215,16 @@ func replacePackageName(typeStr string, pkgList []tupleTypePkg, importController
 	return result
 }
 
-func generateFieldListString(fields []tupleType, importController *importer) (string, bool) {
+func generateFieldListString(fields []tupleType, importController *importer) string {
 	var fieldList []string
-
-	needBracket := false
-	if len(fields) > 1 {
-		needBracket = true
-	}
 
 	for _, f := range fields {
 		modifiedTypeStr := replacePackageName(f.typeStr, f.pkgList, importController)
-
-		var s string
-		if f.name == "" {
-			s = fmt.Sprintf("%s", modifiedTypeStr)
-		} else {
-			needBracket = true
-			s = fmt.Sprintf("%s %s", f.name, modifiedTypeStr)
-		}
+		s := fmt.Sprintf("%s %s", f.name, modifiedTypeStr)
 		fieldList = append(fieldList, s)
 	}
 
-	return strings.Join(fieldList, ", "), needBracket
+	return strings.Join(fieldList, ", ")
 }
 
 func generateArgsString(fields []tupleType) string {
@@ -274,7 +262,7 @@ func generateCodeForMethod(
 	preventShadowMethodRecv(global, local, method.params)
 	preventShadowMethodRecv(global, local, method.results)
 
-	paramsStr, _ := generateFieldListString(method.params, importController)
+	paramsStr := generateFieldListString(method.params, importController)
 	paramsStr = fmt.Sprintf("(%s)", paramsStr)
 
 	ctxName := ""
@@ -285,10 +273,8 @@ func generateCodeForMethod(
 		}
 	}
 
-	resultsStr, needBracket := generateFieldListString(method.results, importController)
-	if needBracket {
-		resultsStr = fmt.Sprintf("(%s)", resultsStr)
-	}
+	resultsStr := generateFieldListString(method.results, importController)
+	resultsStr = fmt.Sprintf("(%s)", resultsStr)
 
 	errStr := ""
 	var recvVars []string
