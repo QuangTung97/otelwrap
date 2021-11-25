@@ -14,6 +14,7 @@ type importer struct {
 type importClause struct {
 	aliasName string
 	path      string
+	usedName  string
 }
 
 func newImporter() *importer {
@@ -94,6 +95,7 @@ func (i *importer) getImports() []importClause {
 		result = append(result, importClause{
 			aliasName: info.aliasName,
 			path:      info.path,
+			usedName:  info.usedName,
 		})
 	}
 	return result

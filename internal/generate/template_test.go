@@ -556,3 +556,150 @@ func (w *HandlerWrapper) ReturnW(ctx context.Context) (ctx1 context.Context, err
 }
 
 //revive:enable:line-length-limit
+
+func TestGenerateCode_Without_Arg_Name(t *testing.T) {
+	var buf bytes.Buffer
+	err := generateCode(&buf, packageTypeInfo{
+		name: "example",
+		imports: []importInfo{
+			{
+				path:     "context",
+				usedName: "context",
+			},
+		},
+		interfaces: []interfaceInfo{
+			{
+				name: "Handler",
+				methods: []methodType{
+					{
+						name: "WithoutName",
+						params: []tupleType{
+							{
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+								pkgList:    pkgListContext(),
+							},
+							{
+								typeStr: "int",
+							},
+						},
+						results: []tupleType{
+							{
+								name:    "",
+								typeStr: "string",
+							},
+							{
+								name:       "",
+								typeStr:    "error",
+								recognized: recognizedTypeError,
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	assert.Equal(t, nil, err)
+	fmt.Println("ERR:", err)
+	assert.Equal(t, `
+package example
+
+import (
+	"context"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
+)
+
+// HandlerWrapper wraps OpenTelemetry's span
+type HandlerWrapper struct {
+	Handler
+	tracer trace.Tracer
+	prefix string
+}
+
+// WithoutName ...
+func (w *HandlerWrapper) WithoutName(ctx context.Context, a int) (a1 string, err error) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "WithoutName")
+	defer span.End()
+
+	a1, err = w.Handler.WithoutName(ctx, a)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return a1, err
+}
+`, buf.String())
+}
+
+func TestGenerateCode_Trace_As_Var_Name(t *testing.T) {
+	var buf bytes.Buffer
+	err := generateCode(&buf, packageTypeInfo{
+		name: "example",
+		imports: []importInfo{
+			{
+				path:     "context",
+				usedName: "context",
+			},
+		},
+		interfaces: []interfaceInfo{
+			{
+				name: "Handler",
+				methods: []methodType{
+					{
+						name: "WithoutName",
+						params: []tupleType{
+							{
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+								pkgList:    pkgListContext(),
+							},
+							{
+								name:    "trace",
+								typeStr: "int",
+							},
+						},
+						results: []tupleType{
+							{
+								name:       "",
+								typeStr:    "error",
+								recognized: recognizedTypeError,
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	assert.Equal(t, nil, err)
+	fmt.Println("ERR:", err)
+	assert.Equal(t, `
+package example
+
+import (
+	"context"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
+)
+
+// HandlerWrapper wraps OpenTelemetry's span
+type HandlerWrapper struct {
+	Handler
+	tracer trace.Tracer
+	prefix string
+}
+
+// WithoutName ...
+func (w *HandlerWrapper) WithoutName(ctx context.Context, a int) (err error) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "WithoutName")
+	defer span.End()
+
+	err = w.Handler.WithoutName(ctx, a)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return err
+}
+`, buf.String())
+}

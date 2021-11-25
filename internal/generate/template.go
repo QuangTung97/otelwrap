@@ -127,35 +127,34 @@ func collectVariables(info packageTypeInfo) templateVariables {
 	}
 }
 
+func assignVariableNamesForFields(
+	global map[string]struct{},
+	local map[string]recognizedType,
+	fieldList []tupleType,
+	startPosition int,
+) {
+	for i, field := range fieldList {
+		_, globalExisted := global[field.name]
+		if field.name != "" && !globalExisted {
+			continue
+		}
+
+		varName := getVariableName(
+			global, local,
+			i-startPosition, field.recognized,
+		)
+		fieldList[i].name = varName
+		local[varName] = field.recognized
+	}
+}
+
 func assignVariableNamesForMethod(
 	global map[string]struct{},
 	local map[string]recognizedType,
 	method methodType,
 ) {
-	for i, param := range method.params {
-		if param.name != "" {
-			continue
-		}
-
-		varName := getVariableName(
-			global, local,
-			i-1, param.recognized,
-		)
-		method.params[i].name = varName
-		local[varName] = param.recognized
-	}
-
-	for i, result := range method.results {
-		if result.name != "" {
-			continue
-		}
-
-		varName := getVariableName(
-			global, local,
-			i, result.recognized,
-		)
-		method.results[i].name = varName
-	}
+	assignVariableNamesForFields(global, local, method.params, 1)
+	assignVariableNamesForFields(global, local, method.results, 0)
 }
 
 func assignVariableNames(info packageTypeInfo) packageTypeInfo {
@@ -322,11 +321,10 @@ func generateCodeForMethod(
 	}
 }
 
-func generateCode(writer io.Writer, info packageTypeInfo) error {
-	info = assignVariableNames(info)
-
+func computeImportController(imports []importInfo) *importer {
 	importController := newImporter()
-	for _, importDetail := range info.imports {
+
+	for _, importDetail := range imports {
 		importController.add(importDetail)
 	}
 
@@ -339,7 +337,28 @@ func generateCode(writer io.Writer, info packageTypeInfo) error {
 		usedName: "codes",
 	}, withPreferPrefix("otel"))
 
+	return importController
+}
+
+func generateCode(writer io.Writer, info packageTypeInfo) error {
+	importController := computeImportController(info.imports)
+
+	controllerImports := importController.getImports()
+	newImports := make([]importInfo, 0, len(controllerImports))
+	for _, clause := range controllerImports {
+		newImports = append(newImports, importInfo{
+			aliasName: clause.aliasName,
+			usedName:  clause.usedName,
+			path:      clause.path,
+		})
+	}
+	info.imports = newImports
+
 	variables := collectVariables(info)
+	info = assignVariableNames(info)
+
+	fmt.Println(variables)
+
 	global := variables.globalVariables
 
 	var interfaces []templateInterface
