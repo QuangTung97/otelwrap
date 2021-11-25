@@ -5,6 +5,16 @@ import (
 	"testing"
 )
 
+func pkgListContext() []tupleTypePkg {
+	return []tupleTypePkg{
+		{
+			path:  "context",
+			begin: 0,
+			end:   len("context"),
+		},
+	}
+}
+
 func TestLoadPackageTypeInfo(t *testing.T) {
 	info, err := loadPackageTypeData("./hello", "Processor")
 	assert.Equal(t, nil, err)
@@ -19,9 +29,7 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 						name:       "ctx",
 						typeStr:    "context.Context",
 						recognized: recognizedTypeContext,
-						pkgPath:    "context",
-						pkgBegin:   0,
-						pkgEnd:     len("context"),
+						pkgList:    pkgListContext(),
 					},
 					{
 						name:    "n",
@@ -42,15 +50,18 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 						name:       "ctx",
 						typeStr:    "context.Context",
 						recognized: recognizedTypeContext,
-						pkgPath:    "context",
-						pkgEnd:     len("context"),
+						pkgList:    pkgListContext(),
 					},
 					{
-						name:     "u",
-						typeStr:  "*User",
-						pkgPath:  "github.com/QuangTung97/otelwrap/internal/generate/hello",
-						pkgBegin: 1,
-						pkgEnd:   1,
+						name:    "u",
+						typeStr: "*User",
+						pkgList: []tupleTypePkg{
+							{
+								path:  "github.com/QuangTung97/otelwrap/internal/generate/hello",
+								begin: 1,
+								end:   1,
+							},
+						},
 					},
 				},
 				results: []tupleType{
@@ -67,8 +78,7 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 						name:       "ctx",
 						typeStr:    "context.Context",
 						recognized: recognizedTypeContext,
-						pkgPath:    "context",
-						pkgEnd:     len("context"),
+						pkgList:    pkgListContext(),
 					},
 					{
 						name:    "id",
@@ -77,15 +87,23 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 					{
 						name:    "content",
 						typeStr: "otelgosdk.Content",
-						pkgPath: "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk",
-						pkgEnd:  len("otelgosdk"),
+						pkgList: []tupleTypePkg{
+							{
+								path: "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk",
+								end:  len("otelgosdk"),
+							},
+						},
 					},
 				},
 				results: []tupleType{
 					{
 						typeStr: "otelgo.Person",
-						pkgPath: "github.com/QuangTung97/otelwrap/internal/generate/hello/otel",
-						pkgEnd:  len("otelgo"),
+						pkgList: []tupleTypePkg{
+							{
+								path: "github.com/QuangTung97/otelwrap/internal/generate/hello/otel",
+								end:  len("otelgo"),
+							},
+						},
 					},
 					{
 						typeStr:    "error",
@@ -99,8 +117,7 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 					{
 						typeStr:    "context.Context",
 						recognized: recognizedTypeContext,
-						pkgPath:    "context",
-						pkgEnd:     len("context"),
+						pkgList:    pkgListContext(),
 					},
 					{
 						typeStr: "int",
@@ -115,8 +132,7 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 						name:       "ctx",
 						typeStr:    "context.Context",
 						recognized: recognizedTypeContext,
-						pkgPath:    "context",
-						pkgEnd:     len("context"),
+						pkgList:    pkgListContext(),
 					},
 					{
 						name:       "params",
@@ -133,22 +149,29 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 						name:       "ctx",
 						typeStr:    "context.Context",
 						recognized: recognizedTypeContext,
-						pkgPath:    "context",
-						pkgEnd:     len("context"),
+						pkgList:    pkgListContext(),
 					},
 					{
-						name:     "contents",
-						typeStr:  "[]*otelgosdk.Content",
-						pkgPath:  "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk",
-						pkgBegin: 3,
-						pkgEnd:   3 + len("otelgosdk"),
+						name:    "contents",
+						typeStr: "[]*otelgosdk.Content",
+						pkgList: []tupleTypePkg{
+							{
+								path:  "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk",
+								begin: 3,
+								end:   3 + len("otelgosdk"),
+							},
+						},
 					},
 				},
 				results: []tupleType{
 					{
 						name:    "",
 						typeStr: "User",
-						pkgPath: "github.com/QuangTung97/otelwrap/internal/generate/hello",
+						pkgList: []tupleTypePkg{
+							{
+								path: "github.com/QuangTung97/otelwrap/internal/generate/hello",
+							},
+						},
 					},
 					{
 						name:       "",

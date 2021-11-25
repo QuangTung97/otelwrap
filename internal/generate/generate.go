@@ -23,15 +23,19 @@ const (
 	recognizedTypeSpan
 )
 
+type tupleTypePkg struct {
+	path  string
+	begin int
+	end   int
+}
+
 type tupleType struct {
 	name       string
 	typeStr    string
 	recognized recognizedType
 	isVariadic bool
 
-	pkgPath  string
-	pkgBegin int
-	pkgEnd   int
+	pkgList []tupleTypePkg
 }
 
 type methodType struct {
@@ -79,11 +83,11 @@ type tupleVisitor struct {
 	begin token.Pos
 	info  *types.Info
 
-	packagePath  string
+	pkgList []tupleTypePkg
+
 	packageBegin int
 	packageEnd   int
-
-	identBegin int
+	foundPkg     bool
 }
 
 func (v *tupleVisitor) Visit(node ast.Node) ast.Visitor {
@@ -99,13 +103,29 @@ func (v *tupleVisitor) Visit(node ast.Node) ast.Visitor {
 	if ok {
 		v.packageBegin = int(ident.Pos() - v.begin)
 		v.packageEnd = int(ident.End() - v.begin)
+		v.foundPkg = true
 		return v
 	}
 
 	pkg := object.Pkg()
 	if pkg != nil {
-		v.identBegin = int(ident.Pos() - v.begin)
-		v.packagePath = pkg.Path()
+		var pkgInfo tupleTypePkg
+		if v.foundPkg {
+			v.foundPkg = false
+			pkgInfo = tupleTypePkg{
+				path:  pkg.Path(),
+				begin: v.packageBegin,
+				end:   v.packageEnd,
+			}
+		} else {
+			identBegin := int(ident.Pos() - v.begin)
+			pkgInfo = tupleTypePkg{
+				path:  pkg.Path(),
+				begin: identBegin,
+				end:   identBegin,
+			}
+		}
+		v.pkgList = append(v.pkgList, pkgInfo)
 	}
 	return v
 }
@@ -135,10 +155,6 @@ func fieldListToTupleList(
 
 		visitor := &tupleVisitor{begin: field.Type.Pos(), info: info}
 		ast.Walk(visitor, field.Type)
-		if visitor.packagePath != "" && visitor.packageEnd == 0 {
-			visitor.packageBegin = visitor.identBegin
-			visitor.packageEnd = visitor.identBegin
-		}
 
 		recognized := getRecognizedType(field, info)
 		tupleTemplate := tupleType{
@@ -146,9 +162,7 @@ func fieldListToTupleList(
 			recognized: recognized,
 			isVariadic: isVariadic,
 
-			pkgPath:  visitor.packagePath,
-			pkgBegin: visitor.packageBegin,
-			pkgEnd:   visitor.packageEnd,
+			pkgList: visitor.pkgList,
 		}
 
 		for _, resultName := range field.Names {
