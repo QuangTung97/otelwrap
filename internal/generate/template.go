@@ -359,16 +359,18 @@ type generateConfig struct {
 	pkgName          string
 }
 
-type generateOption func(conf *generateConfig)
+// Option ...
+type Option func(conf *generateConfig)
 
-func withInAnotherPackage(packageName string) generateOption {
+// WithInAnotherPackage ...
+func WithInAnotherPackage(packageName string) Option {
 	return func(conf *generateConfig) {
 		conf.inAnotherPackage = true
 		conf.pkgName = packageName
 	}
 }
 
-func computeGenerateConfig(options ...generateOption) generateConfig {
+func computeGenerateConfig(options ...Option) generateConfig {
 	conf := generateConfig{
 		inAnotherPackage: false,
 	}
@@ -378,7 +380,7 @@ func computeGenerateConfig(options ...generateOption) generateConfig {
 	return conf
 }
 
-func generateCode(writer io.Writer, info packageTypeInfo, options ...generateOption) error {
+func generateCode(writer io.Writer, info packageTypeInfo, options ...Option) error {
 	conf := computeGenerateConfig(options...)
 
 	importController := newImporter()
@@ -458,4 +460,13 @@ func generateCode(writer io.Writer, info packageTypeInfo, options ...generateOpt
 		Imports:     importStmts,
 		Interfaces:  interfaces,
 	})
+}
+
+// LoadAndGenerate ...
+func LoadAndGenerate(w io.Writer, pattern string, interfaceName string, options ...Option) error {
+	info, err := loadPackageTypeData(pattern, interfaceName)
+	if err != nil {
+		return err
+	}
+	return generateCode(w, info, options...)
 }

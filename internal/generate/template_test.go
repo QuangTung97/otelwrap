@@ -850,7 +850,7 @@ func TestGenerateCode_To_Another_Package(t *testing.T) {
 				},
 			},
 		},
-	}, withInAnotherPackage("example_wrapper"))
+	}, WithInAnotherPackage("example_wrapper"))
 	assert.Equal(t, nil, err)
 	assert.Equal(t, `
 package example_wrapper
@@ -933,7 +933,7 @@ func TestGenerateCode_To_Another_Package_Return_Error(t *testing.T) {
 				},
 			},
 		},
-	}, withInAnotherPackage("example_wrapper"))
+	}, WithInAnotherPackage("example_wrapper"))
 	assert.Equal(t, nil, err)
 	assert.Equal(t, `
 package example_wrapper

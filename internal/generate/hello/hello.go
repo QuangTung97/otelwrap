@@ -26,3 +26,8 @@ type Processor interface {
 	UseArray(ctx context.Context, contents []*otelgosdk.Content) (User, error)
 	UseMap(ctx context.Context, m map[otelgosdk.Content]otelgosdk.Content) map[User]User
 }
+
+// Simple ...
+type Simple interface {
+	Handle(ctx context.Context, u *User) error
+}
