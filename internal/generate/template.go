@@ -3,6 +3,7 @@ package generate
 import (
 	"fmt"
 	"io"
+	"path"
 	"strings"
 	"text/template"
 )
@@ -23,16 +24,22 @@ type {{ .StructName }} struct {
 }
 {{ range .Methods }}
 // {{ .Name }} ...
-func (w *{{ $interface.StructName }}) {{ .Name }}{{ .ParamsString }} {{ .ResultsString }} {
+func (w *{{ $interface.StructName }}) {{ .Name }}{{ .ParamsString }}{{ .ResultsString }}{
 	{{ .CtxName }}, {{ .SpanName }} := w.tracer.Start({{ .CtxName }}, w.prefix + "{{ .Name }}")
 	defer {{ .SpanName }}.End()
 
-	{{ .ResultsRecvString }} = w.{{ $interface.Name }}.{{ .Name }}({{ .ArgsString }})
+	{{ if .WithReturn -}}
+	{{ .ResultsRecvString }} = w.{{ $interface.UsedName }}.{{ .Name }}({{ .ArgsString }})
+	{{ if .WithError -}}
 	if {{ .ErrString }} != nil {
 		{{ .SpanName }}.RecordError({{ .ErrString }})
 		{{ .SpanName }}.SetStatus({{ .ChosenOtelCodes }}, {{ .ErrString }}.Error())
 	}
+	{{- end }}
 	return {{ .ResultsRecvString }}
+	{{- else -}}
+	w.{{ $interface.UsedName }}.{{ .Name }}({{ .ArgsString }})
+	{{- end }}
 }
 {{ end -}}
 {{ end -}}
@@ -53,9 +60,12 @@ type templateMethod struct {
 	CtxName  string
 	SpanName string
 
-	ParamsString      string
-	ResultsString     string
-	ArgsString        string
+	ParamsString  string
+	ResultsString string
+	ArgsString    string
+
+	WithReturn        bool
+	WithError         bool
 	ResultsRecvString string
 	ErrString         string
 	ChosenOtelCodes   string
@@ -63,6 +73,7 @@ type templateMethod struct {
 
 type templateInterface struct {
 	Name             string
+	UsedName         string
 	StructName       string
 	Methods          []templateMethod
 	ChosenOtelTracer string
@@ -210,7 +221,11 @@ func replacePackageName(typeStr string, pkgList []tupleTypePkg, importController
 	result := typeStr
 	for _, pkg := range pkgList {
 		chosenName := importController.chosenName(pkg.path)
-		result = result[:pkg.begin] + chosenName + result[pkg.end:]
+		if pkg.begin == pkg.end && chosenName != "" {
+			result = result[:pkg.begin] + chosenName + "." + result[pkg.end:]
+		} else {
+			result = result[:pkg.begin] + chosenName + result[pkg.end:]
+		}
 	}
 	return result
 }
@@ -273,8 +288,13 @@ func generateCodeForMethod(
 		}
 	}
 
-	resultsStr := generateFieldListString(method.results, importController)
-	resultsStr = fmt.Sprintf("(%s)", resultsStr)
+	var resultsStr string
+	if len(method.results) == 0 {
+		resultsStr = " "
+	} else {
+		resultsStr = generateFieldListString(method.results, importController)
+		resultsStr = fmt.Sprintf(" (%s) ", resultsStr)
+	}
 
 	errStr := ""
 	var recvVars []string
@@ -292,9 +312,12 @@ func generateCodeForMethod(
 		CtxName:  ctxName,
 		SpanName: spanName,
 
-		ParamsString:      paramsStr,
-		ResultsString:     resultsStr,
-		ArgsString:        generateArgsString(method.params),
+		ParamsString:  paramsStr,
+		ResultsString: resultsStr,
+		ArgsString:    generateArgsString(method.params),
+
+		WithReturn:        resultsStr != " ",
+		WithError:         errStr != "",
 		ResultsRecvString: strings.Join(recvVars, ", "),
 		ErrString:         errStr,
 		ChosenOtelCodes: replacePackageName("codes.Error", []tupleTypePkg{
@@ -307,9 +330,7 @@ func generateCodeForMethod(
 	}
 }
 
-func computeImportController(imports []importInfo) *importer {
-	importController := newImporter()
-
+func importControllerAddImports(importController *importer, imports []importInfo) {
 	for _, importDetail := range imports {
 		importController.add(importDetail)
 	}
@@ -322,12 +343,43 @@ func computeImportController(imports []importInfo) *importer {
 		path:     otelCodesPkgPath,
 		usedName: "codes",
 	}, withPreferPrefix("otel"))
-
-	return importController
 }
 
-func generateCode(writer io.Writer, info packageTypeInfo) error {
-	importController := computeImportController(info.imports)
+type generateConfig struct {
+	inAnotherPackage bool
+	pkgName          string
+}
+
+type generateOption func(conf *generateConfig)
+
+func withInAnotherPackage(packageName string) generateOption {
+	return func(conf *generateConfig) {
+		conf.inAnotherPackage = true
+		conf.pkgName = packageName
+	}
+}
+
+func computeGenerateConfig(options ...generateOption) generateConfig {
+	conf := generateConfig{
+		inAnotherPackage: false,
+	}
+	for _, o := range options {
+		o(&conf)
+	}
+	return conf
+}
+
+func generateCode(writer io.Writer, info packageTypeInfo, options ...generateOption) error {
+	conf := computeGenerateConfig(options...)
+
+	importController := newImporter()
+	if conf.inAnotherPackage {
+		importController.add(importInfo{
+			path:     info.path,
+			usedName: path.Base(info.path),
+		})
+	}
+	importControllerAddImports(importController, info.imports)
 
 	controllerImports := importController.getImports()
 	newImports := make([]importInfo, 0, len(controllerImports))
@@ -343,8 +395,6 @@ func generateCode(writer io.Writer, info packageTypeInfo) error {
 	variables := collectVariables(info)
 	info = assignVariableNames(info)
 
-	fmt.Println(variables)
-
 	global := variables.globalVariables
 
 	var interfaces []templateInterface
@@ -355,8 +405,19 @@ func generateCode(writer io.Writer, info packageTypeInfo) error {
 			methods = append(methods, generateCodeForMethod(global, local, method, importController))
 		}
 
+		embeddedInterfaceName := replacePackageName(interfaceDetail.name,
+			[]tupleTypePkg{
+				{
+					path:  info.path,
+					begin: 0,
+					end:   0,
+				},
+			},
+			importController,
+		)
 		interfaces = append(interfaces, templateInterface{
-			Name:       interfaceDetail.name,
+			Name:       embeddedInterfaceName,
+			UsedName:   interfaceDetail.name,
 			StructName: interfaceDetail.name + "Wrapper",
 			Methods:    methods,
 			ChosenOtelTracer: replacePackageName("trace.Tracer", []tupleTypePkg{
@@ -378,8 +439,13 @@ func generateCode(writer io.Writer, info packageTypeInfo) error {
 		}
 	}
 
+	packageName := info.name
+	if conf.pkgName != "" {
+		packageName = conf.pkgName
+	}
+
 	return resultTemplate.Execute(writer, templatePackageInfo{
-		PackageName: info.name,
+		PackageName: packageName,
 		Imports:     importStmts,
 		Interfaces:  interfaces,
 	})

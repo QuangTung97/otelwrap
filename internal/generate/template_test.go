@@ -2,7 +2,6 @@ package generate
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -317,7 +316,6 @@ func TestGenerateCode(t *testing.T) {
 		},
 	})
 	assert.Equal(t, nil, err)
-	fmt.Println("ERR:", err)
 	assert.Equal(t, `
 package example
 
@@ -494,7 +492,6 @@ func TestGenerateCode_W_In_Param(t *testing.T) {
 		},
 	})
 	assert.Equal(t, nil, err)
-	fmt.Println("ERR:", err)
 	assert.Equal(t, `
 package example
 
@@ -600,7 +597,6 @@ func TestGenerateCode_Without_Arg_Name(t *testing.T) {
 		},
 	})
 	assert.Equal(t, nil, err)
-	fmt.Println("ERR:", err)
 	assert.Equal(t, `
 package example
 
@@ -672,7 +668,6 @@ func TestGenerateCode_Trace_As_Var_Name(t *testing.T) {
 		},
 	})
 	assert.Equal(t, nil, err)
-	fmt.Println("ERR:", err)
 	assert.Equal(t, `
 package example
 
@@ -700,6 +695,141 @@ func (w *HandlerWrapper) WithoutName(ctx context.Context, a int) (err error) {
 		span.SetStatus(codes.Error, err.Error())
 	}
 	return err
+}
+`, buf.String())
+}
+
+func TestGenerateCode_Use_Type_In_Current_Package(t *testing.T) {
+	var buf bytes.Buffer
+	err := generateCode(&buf, packageTypeInfo{
+		name: "example",
+		path: "hello/example",
+		imports: []importInfo{
+			{
+				path:     "context",
+				usedName: "context",
+			},
+		},
+		interfaces: []interfaceInfo{
+			{
+				name: "Handler",
+				methods: []methodType{
+					{
+						name: "WithoutName",
+						params: []tupleType{
+							{
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+								pkgList:    pkgListContext(),
+							},
+							{
+								name:    "u",
+								typeStr: "*User",
+								pkgList: []tupleTypePkg{
+									{
+										path:  "hello/example",
+										begin: 1,
+										end:   1,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	assert.Equal(t, nil, err)
+	assert.Equal(t, `
+package example
+
+import (
+	"context"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
+)
+
+// HandlerWrapper wraps OpenTelemetry's span
+type HandlerWrapper struct {
+	Handler
+	tracer trace.Tracer
+	prefix string
+}
+
+// WithoutName ...
+func (w *HandlerWrapper) WithoutName(ctx context.Context, u *User) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "WithoutName")
+	defer span.End()
+
+	w.Handler.WithoutName(ctx, u)
+}
+`, buf.String())
+}
+
+func TestGenerateCode_To_Another_Package(t *testing.T) {
+	var buf bytes.Buffer
+	err := generateCode(&buf, packageTypeInfo{
+		name: "example",
+		path: "hello/example",
+		imports: []importInfo{
+			{
+				path:     "context",
+				usedName: "context",
+			},
+		},
+		interfaces: []interfaceInfo{
+			{
+				name: "Handler",
+				methods: []methodType{
+					{
+						name: "WithoutName",
+						params: []tupleType{
+							{
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+								pkgList:    pkgListContext(),
+							},
+							{
+								name:    "u",
+								typeStr: "*User",
+								pkgList: []tupleTypePkg{
+									{
+										path:  "hello/example",
+										begin: 1,
+										end:   1,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, withInAnotherPackage("example_wrapper"))
+	assert.Equal(t, nil, err)
+	assert.Equal(t, `
+package example_wrapper
+
+import (
+	"hello/example"
+	"context"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
+)
+
+// HandlerWrapper wraps OpenTelemetry's span
+type HandlerWrapper struct {
+	example.Handler
+	tracer trace.Tracer
+	prefix string
+}
+
+// WithoutName ...
+func (w *HandlerWrapper) WithoutName(ctx context.Context, u *example.User) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "WithoutName")
+	defer span.End()
+
+	w.Handler.WithoutName(ctx, u)
 }
 `, buf.String())
 }
