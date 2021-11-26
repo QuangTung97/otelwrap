@@ -48,7 +48,7 @@ func splitPackageNameFromInterfaceNames(interfaceNames []string) (string, []stri
 	result := make([]string, 0, len(interfaceNames))
 	for _, interfaceName := range interfaceNames {
 		values = strings.Split(interfaceName, ".")
-		if len(values) != 2 {
+		if len(values) != 2 || values[0] != packageName {
 			return "", nil, errors.New("can not have mixed interface names")
 		}
 		result = append(result, values[1])
