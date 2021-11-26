@@ -1,4 +1,4 @@
-.PHONY: lint test install-tools
+.PHONY: lint test install-tools install
 
 lint:
 	go fmt ./...
@@ -10,3 +10,6 @@ test:
 
 install-tools:
 	go install github.com/mgechev/revive
+
+install:
+	go install cmd/otelwrap.go

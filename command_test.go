@@ -13,9 +13,9 @@ var _ hello.Processor
 func TestFindAndGenerate_Interface_From_Another(t *testing.T) {
 	var buf bytes.Buffer
 	err := findAndGenerate(&buf, CommandArgs{
-		Dir:      ".",
-		Filename: "command_test.go",
-		Name:     "hello.Simple",
+		Dir:           ".",
+		SrcFileName:   "command_test.go",
+		InterfaceName: "hello.Simple",
 	})
 	assert.Equal(t, nil, err)
 	expected := `
@@ -63,9 +63,9 @@ func (w *SimpleWrapper) Handle(ctx context.Context, u *hello.User) (err error) {
 func TestFindAndGenerate_Same_Package_Not_Found(t *testing.T) {
 	var buf bytes.Buffer
 	err := findAndGenerate(&buf, CommandArgs{
-		Dir:      ".",
-		Filename: "command_test.go",
-		Name:     "Example",
+		Dir:           ".",
+		SrcFileName:   "command_test.go",
+		InterfaceName: "Example",
 	})
 	assert.Equal(t, errors.New("can not find interface 'Example'"), err)
 }
@@ -73,9 +73,9 @@ func TestFindAndGenerate_Same_Package_Not_Found(t *testing.T) {
 func TestFindAndGenerate_Same_Package_OK(t *testing.T) {
 	var buf bytes.Buffer
 	err := findAndGenerate(&buf, CommandArgs{
-		Dir:      ".",
-		Filename: "command_test.go",
-		Name:     "Sample",
+		Dir:           ".",
+		SrcFileName:   "command_test.go",
+		InterfaceName: "Sample",
 	})
 	assert.Equal(t, nil, err)
 	expected := `
@@ -117,4 +117,66 @@ func (w *SampleWrapper) Get(ctx context.Context) (a int, err error) {
 }
 `
 	assert.Equal(t, expected, buf.String())
+}
+
+func TestFindAndGenerate_Export_In_Another(t *testing.T) {
+	var buf bytes.Buffer
+	err := findAndGenerate(&buf, CommandArgs{
+		Dir:           ".",
+		InterfaceName: "Sample",
+		InAnother:     true,
+		PkgName:       "another",
+	})
+	assert.Equal(t, nil, err)
+	expected := `
+package another
+
+import (
+	"github.com/QuangTung97/otelwrap"
+	"context"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
+)
+
+// SampleWrapper wraps OpenTelemetry's span
+type SampleWrapper struct {
+	otelwrap.Sample
+	tracer trace.Tracer
+	prefix string
+}
+
+// NewSampleWrapper creates a wrapper
+func NewSampleWrapper(wrapped otelwrap.Sample, tracer trace.Tracer, prefix string) *SampleWrapper {
+	return &SampleWrapper{
+		Sample: wrapped,
+		tracer: tracer,
+		prefix: prefix,
+	}
+}
+
+// Get ...
+func (w *SampleWrapper) Get(ctx context.Context) (a int, err error) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "Get")
+	defer span.End()
+
+	a, err = w.Sample.Get(ctx)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return a, err
+}
+`
+	assert.Equal(t, expected, buf.String())
+}
+
+func TestCheckInAnother(t *testing.T) {
+	inAnother := CheckInAnother("hello.go")
+	assert.Equal(t, false, inAnother)
+
+	inAnother = CheckInAnother("sample/hello.go")
+	assert.Equal(t, true, inAnother)
+
+	inAnother = CheckInAnother("./hello.go")
+	assert.Equal(t, false, inAnother)
 }
