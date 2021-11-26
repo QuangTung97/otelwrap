@@ -990,3 +990,122 @@ func (w *HandlerWrapper) HelloWorld(ctx context.Context, u *example.User) (err e
 }
 `, buf.String())
 }
+
+func TestGenerateCode_Multiple_Interfaces(t *testing.T) {
+	var buf bytes.Buffer
+	err := generateCode(&buf, packageTypeInfo{
+		name: "example",
+		path: "hello/example",
+		imports: []importInfo{
+			{
+				path:     "context",
+				usedName: "context",
+			},
+		},
+		interfaces: []interfaceInfo{
+			{
+				name: "Handler",
+				methods: []methodType{
+					{
+						name: "HelloWorld",
+						params: []tupleType{
+							{
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+								pkgList:    pkgListContext(),
+							},
+							{
+								name:    "u",
+								typeStr: "*User",
+								pkgList: []tupleTypePkg{
+									{
+										path:  "hello/example",
+										begin: 1,
+										end:   1,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				name: "IRepo",
+				methods: []methodType{
+					{
+						name: "GetUser",
+						params: []tupleType{
+							{
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+								pkgList:    pkgListContext(),
+							},
+							{
+								name:    "id",
+								typeStr: "int",
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	assert.Equal(t, nil, err)
+	assert.Equal(t, `
+package example
+
+import (
+	"context"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
+)
+
+// HandlerWrapper wraps OpenTelemetry's span
+type HandlerWrapper struct {
+	Handler
+	tracer trace.Tracer
+	prefix string
+}
+
+// NewHandlerWrapper creates a wrapper
+func NewHandlerWrapper(wrapped Handler, tracer trace.Tracer, prefix string) *HandlerWrapper {
+	return &HandlerWrapper{
+		Handler: wrapped,
+		tracer: tracer,
+		prefix: prefix,
+	}
+}
+
+// HelloWorld ...
+func (w *HandlerWrapper) HelloWorld(ctx context.Context, u *User) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "HelloWorld")
+	defer span.End()
+
+	w.Handler.HelloWorld(ctx, u)
+}
+
+// IRepoWrapper wraps OpenTelemetry's span
+type IRepoWrapper struct {
+	IRepo
+	tracer trace.Tracer
+	prefix string
+}
+
+// NewIRepoWrapper creates a wrapper
+func NewIRepoWrapper(wrapped IRepo, tracer trace.Tracer, prefix string) *IRepoWrapper {
+	return &IRepoWrapper{
+		IRepo: wrapped,
+		tracer: tracer,
+		prefix: prefix,
+	}
+}
+
+// GetUser ...
+func (w *IRepoWrapper) GetUser(ctx context.Context, id int) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "GetUser")
+	defer span.End()
+
+	w.IRepo.GetUser(ctx, id)
+}
+`, buf.String())
+}

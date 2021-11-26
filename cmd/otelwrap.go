@@ -33,11 +33,11 @@ func main() {
 			}
 
 			return otelwrap.RunCommand(otelwrap.CommandArgs{
-				Dir:           args[0],
-				SrcFileName:   os.Getenv("GOFILE"),
-				InterfaceName: args[1],
-				InAnother:     otelwrap.CheckInAnother(out),
-				PkgName:       pkgName,
+				Dir:            args[0],
+				SrcFileName:    os.Getenv("GOFILE"),
+				InterfaceNames: args[1:],
+				InAnother:      otelwrap.CheckInAnother(out),
+				PkgName:        pkgName,
 			}, out)
 		},
 	}

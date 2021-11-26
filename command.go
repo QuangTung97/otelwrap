@@ -3,6 +3,7 @@ package otelwrap
 import (
 	"bytes"
 	"context"
+	"errors"
 	"github.com/QuangTung97/otelwrap/internal/generate"
 	"go/format"
 	"io"
@@ -17,42 +18,70 @@ type Sample interface {
 	Check() (bool, error)
 }
 
+// Repo for testing
+type Repo interface {
+	Update(ctx context.Context, id int) error
+}
+
 // CommandArgs ...
 type CommandArgs struct {
-	Dir           string
-	SrcFileName   string
-	InterfaceName string
-	InAnother     bool
-	PkgName       string
+	Dir            string
+	SrcFileName    string
+	InterfaceNames []string
+	InAnother      bool
+	PkgName        string
+}
+
+func splitPackageNameFromInterfaceNames(interfaceNames []string) (string, []string, error) {
+	values := strings.Split(interfaceNames[0], ".")
+	if len(values) == 1 {
+		for _, interfaceName := range interfaceNames[1:] {
+			values = strings.Split(interfaceName, ".")
+			if len(values) > 1 {
+				return "", nil, errors.New("can not have mixed interface names")
+			}
+		}
+		return "", interfaceNames, nil
+	}
+
+	packageName := values[0]
+	result := make([]string, 0, len(interfaceNames))
+	for _, interfaceName := range interfaceNames {
+		values = strings.Split(interfaceName, ".")
+		if len(values) != 2 {
+			return "", nil, errors.New("can not have mixed interface names")
+		}
+		result = append(result, values[1])
+	}
+	return packageName, result, nil
 }
 
 func findAndGenerate(w io.Writer, args CommandArgs) error {
-	values := strings.Split(args.InterfaceName, ".")
+	packageName, interfaceNames, err := splitPackageNameFromInterfaceNames(args.InterfaceNames)
+	if err != nil {
+		return err
+	}
 
-	if len(values) == 1 {
-		interfaceName := values[0]
+	if len(packageName) == 0 {
 		if args.InAnother {
 			return generate.LoadAndGenerate(w,
-				".", interfaceName,
+				".", interfaceNames,
 				generate.WithInAnotherPackage(args.PkgName),
 			)
 		}
 		return generate.LoadAndGenerate(w,
-			".", interfaceName,
+			".", interfaceNames,
 		)
 	}
 
-	pkgName := values[0]
-	interfaceName := values[1]
-
 	filePath := path.Join(args.Dir, args.SrcFileName)
-	findResult, err := generate.FindPackage(filePath, pkgName)
+	findResult, err := generate.FindPackage(filePath, packageName)
 	if err != nil {
 		return err
 	}
 
 	return generate.LoadAndGenerate(w,
-		findResult.DestPkgPath, interfaceName,
+		findResult.DestPkgPath, interfaceNames,
 		generate.WithInAnotherPackage(findResult.SrcPkgName),
 	)
 }

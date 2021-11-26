@@ -466,8 +466,8 @@ func generateCode(writer io.Writer, info packageTypeInfo, options ...Option) err
 }
 
 // LoadAndGenerate ...
-func LoadAndGenerate(w io.Writer, pattern string, interfaceName string, options ...Option) error {
-	info, err := loadPackageTypeData(pattern, interfaceName)
+func LoadAndGenerate(w io.Writer, pattern string, interfaceNames []string, options ...Option) error {
+	info, err := loadPackageTypeData(pattern, interfaceNames...)
 	if err != nil {
 		return err
 	}

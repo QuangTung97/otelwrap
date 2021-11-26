@@ -13,9 +13,9 @@ var _ hello.Processor
 func TestFindAndGenerate_Interface_From_Another(t *testing.T) {
 	var buf bytes.Buffer
 	err := findAndGenerate(&buf, CommandArgs{
-		Dir:           ".",
-		SrcFileName:   "command_test.go",
-		InterfaceName: "hello.Simple",
+		Dir:            ".",
+		SrcFileName:    "command_test.go",
+		InterfaceNames: []string{"hello.Simple"},
 	})
 	assert.Equal(t, nil, err)
 	expected := `
@@ -63,9 +63,9 @@ func (w *SimpleWrapper) Handle(ctx context.Context, u *hello.User) (err error) {
 func TestFindAndGenerate_Same_Package_Not_Found(t *testing.T) {
 	var buf bytes.Buffer
 	err := findAndGenerate(&buf, CommandArgs{
-		Dir:           ".",
-		SrcFileName:   "command_test.go",
-		InterfaceName: "Example",
+		Dir:            ".",
+		SrcFileName:    "command_test.go",
+		InterfaceNames: []string{"Example"},
 	})
 	assert.Equal(t, errors.New("can not find interface 'Example'"), err)
 }
@@ -73,9 +73,9 @@ func TestFindAndGenerate_Same_Package_Not_Found(t *testing.T) {
 func TestFindAndGenerate_Same_Package_OK(t *testing.T) {
 	var buf bytes.Buffer
 	err := findAndGenerate(&buf, CommandArgs{
-		Dir:           ".",
-		SrcFileName:   "command_test.go",
-		InterfaceName: "Sample",
+		Dir:            ".",
+		SrcFileName:    "command_test.go",
+		InterfaceNames: []string{"Sample"},
 	})
 	assert.Equal(t, nil, err)
 	expected := `
@@ -122,10 +122,10 @@ func (w *SampleWrapper) Get(ctx context.Context) (a int, err error) {
 func TestFindAndGenerate_Export_In_Another(t *testing.T) {
 	var buf bytes.Buffer
 	err := findAndGenerate(&buf, CommandArgs{
-		Dir:           ".",
-		InterfaceName: "Sample",
-		InAnother:     true,
-		PkgName:       "another",
+		Dir:            ".",
+		InterfaceNames: []string{"Sample", "Repo"},
+		InAnother:      true,
+		PkgName:        "another",
 	})
 	assert.Equal(t, nil, err)
 	expected := `
@@ -165,6 +165,35 @@ func (w *SampleWrapper) Get(ctx context.Context) (a int, err error) {
 		span.SetStatus(codes.Error, err.Error())
 	}
 	return a, err
+}
+
+// RepoWrapper wraps OpenTelemetry's span
+type RepoWrapper struct {
+	otelwrap.Repo
+	tracer trace.Tracer
+	prefix string
+}
+
+// NewRepoWrapper creates a wrapper
+func NewRepoWrapper(wrapped otelwrap.Repo, tracer trace.Tracer, prefix string) *RepoWrapper {
+	return &RepoWrapper{
+		Repo: wrapped,
+		tracer: tracer,
+		prefix: prefix,
+	}
+}
+
+// Update ...
+func (w *RepoWrapper) Update(ctx context.Context, id int) (err error) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "Update")
+	defer span.End()
+
+	err = w.Repo.Update(ctx, id)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return err
 }
 `
 	assert.Equal(t, expected, buf.String())
