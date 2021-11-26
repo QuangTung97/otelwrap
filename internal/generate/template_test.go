@@ -930,6 +930,21 @@ func TestGenerateCode_To_Another_Package_Return_Error(t *testing.T) {
 							},
 						},
 					},
+					{
+						name: "WithoutContext",
+						params: []tupleType{
+							{
+								name:    "n",
+								typeStr: "int",
+							},
+						},
+						results: []tupleType{
+							{
+								typeStr:    "error",
+								recognized: recognizedTypeError,
+							},
+						},
+					},
 				},
 			},
 		},

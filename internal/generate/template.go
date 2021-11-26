@@ -412,6 +412,9 @@ func generateCode(writer io.Writer, info packageTypeInfo, options ...Option) err
 	for interfaceIndex, interfaceDetail := range info.interfaces {
 		var methods []templateMethod
 		for methodIndex, method := range interfaceDetail.methods {
+			if len(method.params) == 0 || method.params[0].recognized != recognizedTypeContext {
+				continue
+			}
 			local := variables.interfaces[interfaceIndex].methods[methodIndex].variables
 			methods = append(methods, generateCodeForMethod(global, local, method, importController))
 		}

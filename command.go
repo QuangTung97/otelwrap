@@ -1,11 +1,18 @@
 package otelwrap
 
 import (
+	"context"
 	"github.com/QuangTung97/otelwrap/internal/generate"
 	"io"
 	"path"
 	"strings"
 )
+
+// Sample for testing
+type Sample interface {
+	Get(ctx context.Context) (int, error)
+	Check() (bool, error)
+}
 
 // CommandArgs ...
 type CommandArgs struct {
@@ -18,6 +25,13 @@ func findAndGenerate(w io.Writer, args CommandArgs) error {
 	filePath := path.Join(args.Dir, args.Filename)
 
 	values := strings.Split(args.Name, ".")
+
+	if len(values) == 1 {
+		interfaceName := values[0]
+		return generate.LoadAndGenerate(w,
+			".", interfaceName,
+		)
+	}
 
 	pkgName := values[0]
 	interfaceName := values[1]
