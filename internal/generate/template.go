@@ -155,7 +155,7 @@ func assignVariableNamesForFields(
 ) {
 	for i, field := range fieldList {
 		_, globalExisted := global[field.name]
-		if field.name != "" && !globalExisted {
+		if field.name != "" && !globalExisted && field.name != "w" {
 			continue
 		}
 
@@ -259,19 +259,6 @@ func generateArgsString(fields []tupleType) string {
 	return strings.Join(args, ", ")
 }
 
-func preventShadowMethodRecv(
-	global map[string]struct{},
-	local map[string]recognizedType,
-	tuples []tupleType,
-) {
-	for i, t := range tuples {
-		if t.name == "w" {
-			newName := getVariableName(global, local, 0, t.recognized)
-			tuples[i].name = newName
-		}
-	}
-}
-
 const (
 	otelTracePkgPath = "go.opentelemetry.io/otel/trace"
 	otelCodesPkgPath = "go.opentelemetry.io/otel/codes"
@@ -283,9 +270,6 @@ func generateCodeForMethod(
 	method methodType,
 	importController *importer,
 ) templateMethod {
-	preventShadowMethodRecv(global, local, method.params)
-	preventShadowMethodRecv(global, local, method.results)
-
 	paramsStr := generateFieldListString(method.params, importController)
 	paramsStr = fmt.Sprintf("(%s)", paramsStr)
 

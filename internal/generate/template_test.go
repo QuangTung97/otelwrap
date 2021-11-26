@@ -468,6 +468,9 @@ func TestGenerateCode_W_In_Param(t *testing.T) {
 						},
 						results: []tupleType{
 							{
+								typeStr: "int",
+							},
+							{
 								typeStr:    "error",
 								recognized: recognizedTypeError,
 							},
@@ -543,16 +546,16 @@ func (w *HandlerWrapper) Hello(ctx context.Context, n int, createdAt time.Time, 
 }
 
 // UseW ...
-func (w *HandlerWrapper) UseW(ctx context.Context, a int64) (err error) {
+func (w *HandlerWrapper) UseW(ctx context.Context, a int64) (a1 int, err error) {
 	ctx, span := w.tracer.Start(ctx, w.prefix + "UseW")
 	defer span.End()
 
-	err = w.Handler.UseW(ctx, a)
+	a1, err = w.Handler.UseW(ctx, a)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, err.Error())
 	}
-	return err
+	return a1, err
 }
 
 // ReturnW ...
