@@ -333,6 +333,15 @@ type HandlerWrapper struct {
 	prefix string
 }
 
+// NewHandlerWrapper creates a wrapper
+func NewHandlerWrapper(wrapped Handler, tracer trace.Tracer, prefix string) *HandlerWrapper {
+	return &HandlerWrapper{
+		Handler: wrapped,
+		tracer: tracer,
+		prefix: prefix,
+	}
+}
+
 // Hello ...
 func (w *HandlerWrapper) Hello(ctx context.Context, n int, createdAt time.Time) (err error) {
 	ctx, span := w.tracer.Start(ctx, w.prefix + "Hello")
@@ -511,6 +520,15 @@ type HandlerWrapper struct {
 	prefix string
 }
 
+// NewHandlerWrapper creates a wrapper
+func NewHandlerWrapper(wrapped Handler, tracer oteltrace.Tracer, prefix string) *HandlerWrapper {
+	return &HandlerWrapper{
+		Handler: wrapped,
+		tracer: tracer,
+		prefix: prefix,
+	}
+}
+
 // Hello ...
 func (w *HandlerWrapper) Hello(ctx context.Context, n int, createdAt time.Time, value *codes.Hello, t *trace.Hello) (err error) {
 	ctx, span := w.tracer.Start(ctx, w.prefix + "Hello")
@@ -613,6 +631,15 @@ type HandlerWrapper struct {
 	prefix string
 }
 
+// NewHandlerWrapper creates a wrapper
+func NewHandlerWrapper(wrapped Handler, tracer trace.Tracer, prefix string) *HandlerWrapper {
+	return &HandlerWrapper{
+		Handler: wrapped,
+		tracer: tracer,
+		prefix: prefix,
+	}
+}
+
 // WithoutName ...
 func (w *HandlerWrapper) WithoutName(ctx context.Context, a int) (a1 string, err error) {
 	ctx, span := w.tracer.Start(ctx, w.prefix + "WithoutName")
@@ -682,6 +709,15 @@ type HandlerWrapper struct {
 	Handler
 	tracer trace.Tracer
 	prefix string
+}
+
+// NewHandlerWrapper creates a wrapper
+func NewHandlerWrapper(wrapped Handler, tracer trace.Tracer, prefix string) *HandlerWrapper {
+	return &HandlerWrapper{
+		Handler: wrapped,
+		tracer: tracer,
+		prefix: prefix,
+	}
 }
 
 // WithoutName ...
@@ -756,6 +792,15 @@ type HandlerWrapper struct {
 	prefix string
 }
 
+// NewHandlerWrapper creates a wrapper
+func NewHandlerWrapper(wrapped Handler, tracer trace.Tracer, prefix string) *HandlerWrapper {
+	return &HandlerWrapper{
+		Handler: wrapped,
+		tracer: tracer,
+		prefix: prefix,
+	}
+}
+
 // WithoutName ...
 func (w *HandlerWrapper) WithoutName(ctx context.Context, u *User) {
 	ctx, span := w.tracer.Start(ctx, w.prefix + "WithoutName")
@@ -824,12 +869,109 @@ type HandlerWrapper struct {
 	prefix string
 }
 
+// NewHandlerWrapper creates a wrapper
+func NewHandlerWrapper(wrapped example.Handler, tracer trace.Tracer, prefix string) *HandlerWrapper {
+	return &HandlerWrapper{
+		Handler: wrapped,
+		tracer: tracer,
+		prefix: prefix,
+	}
+}
+
 // WithoutName ...
 func (w *HandlerWrapper) WithoutName(ctx context.Context, u *example.User) {
 	ctx, span := w.tracer.Start(ctx, w.prefix + "WithoutName")
 	defer span.End()
 
 	w.Handler.WithoutName(ctx, u)
+}
+`, buf.String())
+}
+
+func TestGenerateCode_To_Another_Package_Return_Error(t *testing.T) {
+	var buf bytes.Buffer
+	err := generateCode(&buf, packageTypeInfo{
+		name: "example",
+		path: "hello/example",
+		imports: []importInfo{
+			{
+				path:     "context",
+				usedName: "context",
+			},
+		},
+		interfaces: []interfaceInfo{
+			{
+				name: "Handler",
+				methods: []methodType{
+					{
+						name: "HelloWorld",
+						params: []tupleType{
+							{
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+								pkgList:    pkgListContext(),
+							},
+							{
+								name:    "u",
+								typeStr: "*User",
+								pkgList: []tupleTypePkg{
+									{
+										path:  "hello/example",
+										begin: 1,
+										end:   1,
+									},
+								},
+							},
+						},
+						results: []tupleType{
+							{
+								typeStr:    "error",
+								recognized: recognizedTypeError,
+							},
+						},
+					},
+				},
+			},
+		},
+	}, withInAnotherPackage("example_wrapper"))
+	assert.Equal(t, nil, err)
+	assert.Equal(t, `
+package example_wrapper
+
+import (
+	"hello/example"
+	"context"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
+)
+
+// HandlerWrapper wraps OpenTelemetry's span
+type HandlerWrapper struct {
+	example.Handler
+	tracer trace.Tracer
+	prefix string
+}
+
+// NewHandlerWrapper creates a wrapper
+func NewHandlerWrapper(wrapped example.Handler, tracer trace.Tracer, prefix string) *HandlerWrapper {
+	return &HandlerWrapper{
+		Handler: wrapped,
+		tracer: tracer,
+		prefix: prefix,
+	}
+}
+
+// HelloWorld ...
+func (w *HandlerWrapper) HelloWorld(ctx context.Context, u *example.User) (err error) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "HelloWorld")
+	defer span.End()
+
+	err = w.Handler.HelloWorld(ctx, u)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return err
 }
 `, buf.String())
 }

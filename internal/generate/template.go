@@ -22,6 +22,15 @@ type {{ .StructName }} struct {
 	tracer {{ .ChosenOtelTracer }}
 	prefix string
 }
+
+// New{{ .StructName }} creates a wrapper
+func New{{ .StructName }}(wrapped {{ .Name}}, tracer {{ .ChosenOtelTracer }}, prefix string) *{{ .StructName }} {
+	return &{{ .StructName }}{
+		{{ .UsedName }}: wrapped,
+		tracer: tracer,
+		prefix: prefix,
+	}
+}
 {{ range .Methods }}
 // {{ .Name }} ...
 func (w *{{ $interface.StructName }}) {{ .Name }}{{ .ParamsString }}{{ .ResultsString }}{
