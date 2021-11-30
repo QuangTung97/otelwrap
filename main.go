@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/QuangTung97/otelwrap"
+	"github.com/QuangTung97/otelwrap/otelwrap"
 	"github.com/spf13/cobra"
 	"os"
 )

@@ -154,7 +154,7 @@ func TestFindAndGenerate_Export_In_Another(t *testing.T) {
 package another
 
 import (
-	"github.com/QuangTung97/otelwrap"
+	"github.com/QuangTung97/otelwrap/otelwrap"
 	"context"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/codes"

@@ -12,4 +12,4 @@ install-tools:
 	go install github.com/mgechev/revive
 
 install:
-	go install cmd/otelwrap.go
+	go install
