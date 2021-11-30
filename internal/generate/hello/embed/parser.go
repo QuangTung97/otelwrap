@@ -1,10 +1,14 @@
 package embed
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // Scanner ...
 type Scanner interface {
 	Scan(ctx context.Context, n int) error
+	Convert(ctx context.Context, d time.Duration)
 }
 
 // Parser ...

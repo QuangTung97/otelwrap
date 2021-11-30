@@ -59,6 +59,28 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 				},
 			},
 			{
+				name: "Convert",
+				params: []tupleType{
+					{
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
+						pkgList:    pkgListContext(),
+					},
+					{
+						name:    "d",
+						typeStr: "time.Duration",
+						pkgList: []tupleTypePkg{
+							{
+								path:  "time",
+								begin: 0,
+								end:   len("time"),
+							},
+						},
+					},
+				},
+			},
+			{
 				name: "Compute",
 				params: []tupleType{
 					{
@@ -295,8 +317,8 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 			},
 			{
 				aliasName: "",
-				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/embed",
-				usedName:  "embed",
+				path:      "time",
+				usedName:  "time",
 			},
 			{
 				aliasName: "otelgo",

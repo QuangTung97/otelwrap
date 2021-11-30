@@ -247,7 +247,7 @@ func getImportInfos(syntaxFiles []*ast.File, acceptedPackages map[string]struct{
 				usedName = aliasName
 			}
 
-			if _, ok := acceptedPackages[usedName]; !ok {
+			if _, ok := acceptedPackages[pathValue]; !ok {
 				continue
 			}
 
@@ -261,15 +261,41 @@ func getImportInfos(syntaxFiles []*ast.File, acceptedPackages map[string]struct{
 	return imports
 }
 
-type importVisitor struct {
-	info         *types.Info
-	packageNames map[string]struct{}
+type importVisitorData struct {
+	packagePaths map[string]struct{}
+
+	existedImports map[string]struct{}
+	imports        []importInfo
 }
 
-func newImportVisitor(info *types.Info) *importVisitor {
+type importVisitor struct {
+	info *types.Info
+	data *importVisitorData
+}
+
+func newImportVisitorData() *importVisitorData {
+	return &importVisitorData{
+		packagePaths:   map[string]struct{}{},
+		existedImports: map[string]struct{}{},
+		imports:        nil,
+	}
+}
+
+func newImportVisitor(info *types.Info, visitorData *importVisitorData) *importVisitor {
 	return &importVisitor{
-		info:         info,
-		packageNames: map[string]struct{}{},
+		info: info,
+		data: visitorData,
+	}
+}
+
+func (v *importVisitorData) append(imports []importInfo) {
+	for _, importDetail := range imports {
+		if _, existed := v.existedImports[importDetail.path]; existed {
+			continue
+		}
+
+		v.existedImports[importDetail.path] = struct{}{}
+		v.imports = append(v.imports, importDetail)
 	}
 }
 
@@ -286,7 +312,7 @@ func (v *importVisitor) Visit(node ast.Node) ast.Visitor {
 	if !ok {
 		return v
 	}
-	v.packageNames[pkgName.Name()] = struct{}{}
+	v.data.packagePaths[pkgName.Imported().Path()] = struct{}{}
 	return v
 }
 
@@ -338,14 +364,14 @@ func getInterfaceInfoRecursive(
 	loaded loadedPackages,
 	interfaceName string,
 	foundPkg loadedPackage,
-	visitor *importVisitor,
+	visitorData *importVisitorData,
 ) ([]methodType, error) {
 	interfaceType, err := findInterfaceType(interfaceName, foundPkg.pkg.Syntax)
 	if err != nil {
 		return nil, err
 	}
 
-	ast.Walk(visitor, interfaceType)
+	visitor := newImportVisitor(foundPkg.pkg.TypesInfo, visitorData)
 
 	for _, field := range interfaceType.Methods.List {
 		funcType, ok := field.Type.(*ast.FuncType)
@@ -360,12 +386,16 @@ func getInterfaceInfoRecursive(
 				return nil, err
 			}
 
-			methods, err = getInterfaceInfoRecursive(methods, loaded, embed.name, embeddedPkg, visitor)
+			methods, err = getInterfaceInfoRecursive(methods, loaded, embed.name, embeddedPkg, visitorData)
 			if err != nil {
 				return nil, err
 			}
+
+			visitorData.append(getImportInfos(embeddedPkg.pkg.Syntax, visitorData.packagePaths))
 			continue
 		}
+
+		ast.Walk(visitor, field)
 
 		params := fieldListToTupleList(funcType.Params, foundPkg.pkg.Fset, foundPkg.fileMap, foundPkg.pkg.TypesInfo)
 		results := fieldListToTupleList(funcType.Results, foundPkg.pkg.Fset, foundPkg.fileMap, foundPkg.pkg.TypesInfo)
@@ -384,11 +414,11 @@ func getInterfaceInfo(
 	loaded loadedPackages,
 	interfaceName string,
 	foundPkg loadedPackage,
-	visitor *importVisitor,
+	visitorData *importVisitorData,
 ) (interfaceInfo, error) {
 	methods := make([]methodType, 0)
 
-	methods, err := getInterfaceInfoRecursive(methods, loaded, interfaceName, foundPkg, visitor)
+	methods, err := getInterfaceInfoRecursive(methods, loaded, interfaceName, foundPkg, visitorData)
 	if err != nil {
 		return interfaceInfo{}, err
 	}
@@ -469,23 +499,23 @@ func loadPackageTypeData(pattern string, interfaceNames ...string) (packageTypeI
 		return packageTypeInfo{}, err
 	}
 
-	visitor := newImportVisitor(foundPkg.pkg.TypesInfo)
+	visitorData := newImportVisitorData()
 
 	var interfaces []interfaceInfo
 	for _, interfaceName := range interfaceNames {
-		info, err := getInterfaceInfo(loaded, interfaceName, foundPkg, visitor)
+		info, err := getInterfaceInfo(loaded, interfaceName, foundPkg, visitorData)
 		if err != nil {
 			return packageTypeInfo{}, err
 		}
 		interfaces = append(interfaces, info)
 	}
 
-	imports := getImportInfos(foundPkg.pkg.Syntax, visitor.packageNames)
+	visitorData.append(getImportInfos(foundPkg.pkg.Syntax, visitorData.packagePaths))
 
 	return packageTypeInfo{
 		name:       foundPkg.pkg.Name,
 		path:       foundPkg.pkg.PkgPath,
-		imports:    imports,
+		imports:    visitorData.imports,
 		interfaces: interfaces,
 	}, nil
 }
