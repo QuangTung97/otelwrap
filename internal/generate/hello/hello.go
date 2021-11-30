@@ -39,5 +39,7 @@ type Processor interface {
 
 // Simple ...
 type Simple interface {
+	embed.Scanner
+
 	Handle(ctx context.Context, u *User) error
 }

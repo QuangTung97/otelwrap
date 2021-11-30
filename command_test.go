@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-var _ hello.Processor
+var _ hello.Simple
 
 func TestFindAndGenerate_Interface_From_Another(t *testing.T) {
 	var buf bytes.Buffer
@@ -24,6 +24,7 @@ package otelwrap
 import (
 	"github.com/QuangTung97/otelwrap/internal/generate/hello"
 	"context"
+	"time"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/codes"
 )
@@ -42,6 +43,27 @@ func NewSimpleWrapper(wrapped hello.Simple, tracer trace.Tracer, prefix string) 
 		tracer: tracer,
 		prefix: prefix,
 	}
+}
+
+// Scan ...
+func (w *SimpleWrapper) Scan(ctx context.Context, n int) (err error) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "Scan")
+	defer span.End()
+
+	err = w.Simple.Scan(ctx, n)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return err
+}
+
+// Convert ...
+func (w *SimpleWrapper) Convert(ctx context.Context, d time.Duration) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "Convert")
+	defer span.End()
+
+	w.Simple.Convert(ctx, d)
 }
 
 // Handle ...
