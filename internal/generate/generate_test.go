@@ -23,6 +23,63 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 		name: "Processor",
 		methods: []methodType{
 			{
+				name: "StartTimer",
+				params: []tupleType{
+					{
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
+						pkgList:    pkgListContext(),
+					},
+					{
+						name:    "d",
+						typeStr: "int32",
+					},
+				},
+			},
+			{
+				name: "Scan",
+				params: []tupleType{
+					{
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
+						pkgList:    pkgListContext(),
+					},
+					{
+						name:    "n",
+						typeStr: "int",
+					},
+				},
+				results: []tupleType{
+					{
+						typeStr:    "error",
+						recognized: recognizedTypeError,
+					},
+				},
+			},
+			{
+				name: "Compute",
+				params: []tupleType{
+					{
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
+						pkgList:    pkgListContext(),
+					},
+					{
+						name:    "x",
+						typeStr: "string",
+					},
+				},
+				results: []tupleType{
+					{
+						typeStr:    "error",
+						recognized: recognizedTypeError,
+					},
+				},
+			},
+			{
 				name: "DoA",
 				params: []tupleType{
 					{
@@ -237,10 +294,16 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 				usedName:  "context",
 			},
 			{
+				aliasName: "",
+				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/embed",
+				usedName:  "embed",
+			},
+			{
 				aliasName: "otelgo",
 				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/otel",
 				usedName:  "otelgo",
-			}, {
+			},
+			{
 				aliasName: "otelgosdk",
 				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk",
 				usedName:  "otelgosdk",

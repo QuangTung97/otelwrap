@@ -290,27 +290,85 @@ func (v *importVisitor) Visit(node ast.Node) ast.Visitor {
 	return v
 }
 
-func getInterfaceInfo(
-	interfaceName string, foundPkg *packages.Package,
-	fileMap map[string]string,
+type embeddedInterface struct {
+	name    string
+	pkgPath string
+}
+
+func getEmbeddedInterface(field *ast.Field, foundPkg *packages.Package) (embeddedInterface, bool) {
+	selector, ok := field.Type.(*ast.SelectorExpr)
+	if !ok {
+		ident, ok := field.Type.(*ast.Ident)
+		if !ok {
+			return embeddedInterface{}, false
+		}
+		object, ok := foundPkg.TypesInfo.Uses[ident]
+		if !ok {
+			return embeddedInterface{}, false
+		}
+		return embeddedInterface{
+			name:    ident.Name,
+			pkgPath: object.Pkg().Path(),
+		}, true
+	}
+
+	packageIdent, ok := selector.X.(*ast.Ident)
+	if !ok {
+		return embeddedInterface{}, false
+	}
+
+	object, ok := foundPkg.TypesInfo.Uses[packageIdent]
+	if !ok {
+		return embeddedInterface{}, false
+	}
+
+	pkg, ok := object.(*types.PkgName)
+	if !ok {
+		return embeddedInterface{}, false
+	}
+
+	return embeddedInterface{
+		name:    selector.Sel.Name,
+		pkgPath: pkg.Imported().Path(),
+	}, true
+}
+
+func getInterfaceInfoRecursive(
+	methods []methodType,
+	loaded loadedPackages,
+	interfaceName string,
+	foundPkg loadedPackage,
 	visitor *importVisitor,
-) (interfaceInfo, error) {
-	interfaceType, err := findInterfaceType(interfaceName, foundPkg.Syntax)
+) ([]methodType, error) {
+	interfaceType, err := findInterfaceType(interfaceName, foundPkg.pkg.Syntax)
 	if err != nil {
-		return interfaceInfo{}, err
+		return nil, err
 	}
 
 	ast.Walk(visitor, interfaceType)
 
-	methods := make([]methodType, 0, len(interfaceType.Methods.List))
 	for _, field := range interfaceType.Methods.List {
 		funcType, ok := field.Type.(*ast.FuncType)
 		if !ok {
+			embed, ok := getEmbeddedInterface(field, foundPkg.pkg)
+			if !ok {
+				continue
+			}
+
+			embeddedPkg, err := loadPackageForInterfaces(loaded, embed.pkgPath, embed.name)
+			if err != nil {
+				return nil, err
+			}
+
+			methods, err = getInterfaceInfoRecursive(methods, loaded, embed.name, embeddedPkg, visitor)
+			if err != nil {
+				return nil, err
+			}
 			continue
 		}
 
-		params := fieldListToTupleList(funcType.Params, foundPkg.Fset, fileMap, foundPkg.TypesInfo)
-		results := fieldListToTupleList(funcType.Results, foundPkg.Fset, fileMap, foundPkg.TypesInfo)
+		params := fieldListToTupleList(funcType.Params, foundPkg.pkg.Fset, foundPkg.fileMap, foundPkg.pkg.TypesInfo)
+		results := fieldListToTupleList(funcType.Results, foundPkg.pkg.Fset, foundPkg.fileMap, foundPkg.pkg.TypesInfo)
 
 		methods = append(methods, methodType{
 			name:    field.Names[0].Name,
@@ -319,23 +377,72 @@ func getInterfaceInfo(
 		})
 	}
 
+	return methods, nil
+}
+
+func getInterfaceInfo(
+	loaded loadedPackages,
+	interfaceName string,
+	foundPkg loadedPackage,
+	visitor *importVisitor,
+) (interfaceInfo, error) {
+	methods := make([]methodType, 0)
+
+	methods, err := getInterfaceInfoRecursive(methods, loaded, interfaceName, foundPkg, visitor)
+	if err != nil {
+		return interfaceInfo{}, err
+	}
+
 	return interfaceInfo{
 		name:    interfaceName,
 		methods: methods,
 	}, nil
 }
 
-func loadPackageTypeData(pattern string, interfaceNames ...string) (packageTypeInfo, error) {
-	mode := packages.NeedName | packages.NeedSyntax | packages.NeedCompiledGoFiles |
-		packages.NeedTypes | packages.NeedTypesInfo
+type loadedPackage struct {
+	fileMap map[string]string
+	pkg     *packages.Package
+}
 
-	pkgList, err := packages.Load(&packages.Config{
-		Mode: mode,
-	}, pattern)
-	if err != nil {
-		return packageTypeInfo{}, err
+type loadedPackages = map[string]loadedPackage
+
+const loadPackageMode = packages.NeedName | packages.NeedSyntax | packages.NeedCompiledGoFiles |
+	packages.NeedTypes | packages.NeedTypesInfo
+
+func loadPackageForInterfaces(
+	loaded loadedPackages, pattern string, interfaceNames ...string,
+) (loadedPackage, error) {
+	if pkg, existed := loaded[pattern]; existed {
+		_, err := checkAndFindPackageForInterfaces([]*packages.Package{pkg.pkg}, interfaceNames...)
+		if err != nil {
+			return loadedPackage{}, err
+		}
+		return pkg, nil
 	}
 
+	pkgList, err := packages.Load(&packages.Config{
+		Mode: loadPackageMode,
+	}, pattern)
+	if err != nil {
+		return loadedPackage{}, err
+	}
+
+	foundPkg, err := checkAndFindPackageForInterfaces(pkgList, interfaceNames...)
+	if err != nil {
+		return loadedPackage{}, err
+	}
+
+	result := loadedPackage{
+		pkg:     foundPkg,
+		fileMap: readFiles(foundPkg.CompiledGoFiles),
+	}
+	loaded[foundPkg.PkgPath] = result
+	return result, nil
+}
+
+func checkAndFindPackageForInterfaces(
+	pkgList []*packages.Package, interfaceNames ...string,
+) (*packages.Package, error) {
 	var foundPkg *packages.Package
 	for _, pkg := range pkgList {
 		if pkg.Types.Scope().Lookup(interfaceNames[0]) != nil {
@@ -343,34 +450,41 @@ func loadPackageTypeData(pattern string, interfaceNames ...string) (packageTypeI
 			break
 		}
 	}
-
 	if foundPkg == nil {
-		return packageTypeInfo{}, fmt.Errorf("can not find interface '%s'", interfaceNames[0])
+		return nil, fmt.Errorf("can not find interface '%s'", interfaceNames[0])
 	}
-	for _, otherName := range interfaceNames[1:] {
-		if foundPkg.Types.Scope().Lookup(otherName) == nil {
-			return packageTypeInfo{}, fmt.Errorf("can not find interface '%s'", otherName)
+
+	for _, interfaceName := range interfaceNames[1:] {
+		if foundPkg.Types.Scope().Lookup(interfaceName) == nil {
+			return nil, fmt.Errorf("can not find interface '%s'", interfaceName)
 		}
 	}
+	return foundPkg, nil
+}
 
-	fileMap := readFiles(foundPkg.CompiledGoFiles)
+func loadPackageTypeData(pattern string, interfaceNames ...string) (packageTypeInfo, error) {
+	loaded := loadedPackages{}
+	foundPkg, err := loadPackageForInterfaces(loaded, pattern, interfaceNames...)
+	if err != nil {
+		return packageTypeInfo{}, err
+	}
 
-	visitor := newImportVisitor(foundPkg.TypesInfo)
+	visitor := newImportVisitor(foundPkg.pkg.TypesInfo)
 
 	var interfaces []interfaceInfo
 	for _, interfaceName := range interfaceNames {
-		info, err := getInterfaceInfo(interfaceName, foundPkg, fileMap, visitor)
+		info, err := getInterfaceInfo(loaded, interfaceName, foundPkg, visitor)
 		if err != nil {
 			return packageTypeInfo{}, err
 		}
 		interfaces = append(interfaces, info)
 	}
 
-	imports := getImportInfos(foundPkg.Syntax, visitor.packageNames)
+	imports := getImportInfos(foundPkg.pkg.Syntax, visitor.packageNames)
 
 	return packageTypeInfo{
-		name:       foundPkg.Name,
-		path:       foundPkg.PkgPath,
+		name:       foundPkg.pkg.Name,
+		path:       foundPkg.pkg.PkgPath,
 		imports:    imports,
 		interfaces: interfaces,
 	}, nil
