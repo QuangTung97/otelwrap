@@ -60,7 +60,7 @@ type MyInterface interface {
 
 The run ``go generate ./...`` in your module.
 
-To use the generated struct, simply wraps the original implementation. The generated code  is very easy to read.
+To use the generated struct, simply wraps the original implementation. The generated code is very easy to read.
 
 ```go
 package example
@@ -73,4 +73,32 @@ func InitMyInterface() MyInterface {
 }
 
 
+```
+
+Can also generate for interfaces in other packages:
+
+```go
+package example
+
+import "path/to/another"
+
+var _ another.Interface1 // not necessary, only for keeping the import statement
+
+//go:generate -out interface_wrappers.go . another.Interface1 another.Interface2
+```
+
+Or generate to another package:
+
+```go
+package example
+
+import "context"
+
+//go:generate otelwrap -out ../another/interface_wrappers.go . MyInterface
+
+type MyInterface interface {
+    Method1(ctx context.Context) error
+    Method2(ctx context.Context, x int)
+    Method3()
+}
 ```
