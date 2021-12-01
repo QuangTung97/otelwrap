@@ -1,4 +1,6 @@
 ## OtelWrap: code generation tool for Go OpenTelemetry
+[![Build Status](https://app.travis-ci.com/QuangTung97/otelwrap.svg?branch=master)](https://app.travis-ci.com/QuangTung97/otelwrap)
+[![Coverage Status](https://coveralls.io/repos/github/QuangTung97/otelwrap/badge.svg)](https://coveralls.io/github/QuangTung97/otelwrap)
 
 ### What is OtelWrap?
 
@@ -8,7 +10,7 @@ with Go OpenTelemetry library. Inspired by https://github.com/matryer/moq
 Supporting:
 
 * Any interface and any method with **context.Context** as the first parameter.
-* Detecting **error** return and the set span's error status accordingly.
+* Detecting **error** return and set the span's error status accordingly.
 * Only tested using **go generate**.
 * Interface embedding.
 * Generating inside / outside of current package.
