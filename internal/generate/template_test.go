@@ -1112,3 +1112,84 @@ func (w *IRepoWrapper) GetUser(ctx context.Context, id int) {
 }
 `, buf.String())
 }
+
+func TestGenerateCode_With_Variadic_Params(t *testing.T) {
+	var buf bytes.Buffer
+	err := generateCode(&buf, packageTypeInfo{
+		name: "example",
+		path: "hello/example",
+		imports: []importInfo{
+			{
+				path:     "context",
+				usedName: "context",
+			},
+		},
+		interfaces: []interfaceInfo{
+			{
+				name: "Handler",
+				methods: []methodType{
+					{
+						name: "ManyParams",
+						params: []tupleType{
+							{
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+								pkgList:    pkgListContext(),
+							},
+							{
+								name:       "names",
+								typeStr:    "...string",
+								isVariadic: true,
+							},
+						},
+						results: []tupleType{
+							{
+								typeStr:    "error",
+								recognized: recognizedTypeError,
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	assert.Equal(t, nil, err)
+	assert.Equal(t, `
+package example
+
+import (
+	"context"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
+)
+
+// HandlerWrapper wraps OpenTelemetry's span
+type HandlerWrapper struct {
+	Handler
+	tracer trace.Tracer
+	prefix string
+}
+
+// NewHandlerWrapper creates a wrapper
+func NewHandlerWrapper(wrapped Handler, tracer trace.Tracer, prefix string) *HandlerWrapper {
+	return &HandlerWrapper{
+		Handler: wrapped,
+		tracer: tracer,
+		prefix: prefix,
+	}
+}
+
+// ManyParams ...
+func (w *HandlerWrapper) ManyParams(ctx context.Context, names ...string) (err error) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "ManyParams")
+	defer span.End()
+
+	err = w.Handler.ManyParams(ctx, names...)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return err
+}
+`, buf.String())
+}

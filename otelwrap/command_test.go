@@ -78,6 +78,14 @@ func (w *SimpleWrapper) Handle(ctx context.Context, u *hello.User) (err error) {
 	}
 	return err
 }
+
+// Variadic ...
+func (w *SimpleWrapper) Variadic(ctx context.Context, names ...string) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "Variadic")
+	defer span.End()
+
+	w.Simple.Variadic(ctx, names...)
+}
 `
 	assert.Equal(t, expected, buf.String())
 }

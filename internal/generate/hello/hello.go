@@ -42,4 +42,5 @@ type Simple interface {
 	embed.Scanner
 
 	Handle(ctx context.Context, u *User) error
+	Variadic(ctx context.Context, names ...string)
 }

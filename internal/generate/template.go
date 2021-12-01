@@ -254,7 +254,11 @@ func generateFieldListString(fields []tupleType, importController *importer) str
 func generateArgsString(fields []tupleType) string {
 	var args []string
 	for _, field := range fields {
-		args = append(args, field.name)
+		name := field.name
+		if field.isVariadic {
+			name = name + "..."
+		}
+		args = append(args, name)
 	}
 	return strings.Join(args, ", ")
 }
