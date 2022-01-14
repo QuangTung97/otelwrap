@@ -308,11 +308,13 @@ func (v *importVisitor) Visit(node ast.Node) ast.Visitor {
 	if !ok {
 		return v
 	}
-	pkgName, ok := object.(*types.PkgName)
-	if !ok {
+
+	if object.Pkg() == nil {
 		return v
 	}
-	v.data.packagePaths[pkgName.Imported().Path()] = struct{}{}
+
+	pkgPath := object.Pkg().Path()
+	v.data.packagePaths[pkgPath] = struct{}{}
 	return v
 }
 

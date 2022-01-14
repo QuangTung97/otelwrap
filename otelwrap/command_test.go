@@ -25,6 +25,7 @@ import (
 	"github.com/QuangTung97/otelwrap/internal/generate/hello"
 	"context"
 	"time"
+	"github.com/QuangTung97/otelwrap/internal/generate/hello/embed"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/codes"
 )
@@ -64,6 +65,14 @@ func (w *SimpleWrapper) Convert(ctx context.Context, d time.Duration) {
 	defer span.End()
 
 	w.Simple.Convert(ctx, d)
+}
+
+// SetInfo ...
+func (w *SimpleWrapper) SetInfo(ctx context.Context, info embed.ScannerInfo) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "SetInfo")
+	defer span.End()
+
+	w.Simple.SetInfo(ctx, info)
 }
 
 // Handle ...

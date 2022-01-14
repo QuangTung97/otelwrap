@@ -5,10 +5,16 @@ import (
 	"time"
 )
 
+// ScannerInfo ...
+type ScannerInfo struct {
+	Name string
+}
+
 // Scanner ...
 type Scanner interface {
 	Scan(ctx context.Context, n int) error
 	Convert(ctx context.Context, d time.Duration)
+	SetInfo(ctx context.Context, info ScannerInfo)
 }
 
 // Parser ...
