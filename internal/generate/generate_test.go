@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+const rootPackagePath = "github.com/QuangTung97/otelwrap/internal/generate"
+
 func pkgListContext() []tupleTypePkg {
 	return []tupleTypePkg{
 		{
@@ -524,4 +526,59 @@ func TestLoadPackageTypeInfo_Not_An_Interface(t *testing.T) {
 	info, err := loadPackageTypeData("./hello", "User")
 	assert.Equal(t, errors.New("name 'User' is not an interface"), err)
 	assert.Equal(t, packageTypeInfo{}, info)
+}
+
+func TestLoadPackageTypeInfo_Interface_With_Underscore(t *testing.T) {
+	info, err := loadPackageTypeData("./hello", "InterfaceWithUnderscore")
+	assert.Equal(t, nil, err)
+
+	methods := []methodType{
+		{
+			name: "GetName",
+			params: []tupleType{
+				{
+					name:       "ctx",
+					typeStr:    "context.Context",
+					recognized: recognizedTypeContext,
+					pkgList:    pkgListContext(),
+				},
+				{
+					name:    "_",
+					typeStr: "string",
+				},
+				{
+					name:    "_",
+					typeStr: "int",
+				},
+			},
+			results: []tupleType{
+				{
+					name:    "_",
+					typeStr: "int32",
+				},
+				{
+					name:       "_",
+					typeStr:    "error",
+					recognized: recognizedTypeError,
+				},
+			},
+		},
+	}
+
+	assert.Equal(t, packageTypeInfo{
+		name: "hello",
+		path: rootPackagePath + "/hello",
+		imports: []importInfo{
+			{
+				usedName: "context",
+				path:     "context",
+			},
+		},
+		interfaces: []interfaceInfo{
+			{
+				name:    "InterfaceWithUnderscore",
+				methods: methods,
+			},
+		},
+	}, info)
 }

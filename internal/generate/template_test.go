@@ -1193,3 +1193,84 @@ func (w *HandlerWrapper) ManyParams(ctx context.Context, names ...string) (err e
 }
 `, buf.String())
 }
+
+func TestGenerateCode_With_Underscore(t *testing.T) {
+	var buf bytes.Buffer
+	err := generateCode(&buf, packageTypeInfo{
+		name: "example",
+		path: "hello/example",
+		imports: []importInfo{
+			{
+				path:     "context",
+				usedName: "context",
+			},
+		},
+		interfaces: []interfaceInfo{
+			{
+				name: "Handler",
+				methods: []methodType{
+					{
+						name: "GetName",
+						params: []tupleType{
+							{
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+								pkgList:    pkgListContext(),
+							},
+							{
+								name:    "_",
+								typeStr: "string",
+							},
+						},
+						results: []tupleType{
+							{
+								name:       "_",
+								typeStr:    "error",
+								recognized: recognizedTypeError,
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	assert.Equal(t, nil, err)
+	assert.Equal(t, `
+package example
+
+import (
+	"context"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
+)
+
+// HandlerWrapper wraps OpenTelemetry's span
+type HandlerWrapper struct {
+	Handler
+	tracer trace.Tracer
+	prefix string
+}
+
+// NewHandlerWrapper creates a wrapper
+func NewHandlerWrapper(wrapped Handler, tracer trace.Tracer, prefix string) *HandlerWrapper {
+	return &HandlerWrapper{
+		Handler: wrapped,
+		tracer: tracer,
+		prefix: prefix,
+	}
+}
+
+// GetName ...
+func (w *HandlerWrapper) GetName(ctx context.Context, a string) (err error) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "GetName")
+	defer span.End()
+
+	err = w.Handler.GetName(ctx, a)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return err
+}
+`, buf.String())
+}

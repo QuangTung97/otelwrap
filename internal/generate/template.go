@@ -147,6 +147,10 @@ func collectVariables(info packageTypeInfo) templateVariables {
 	}
 }
 
+func nameIsEmpty(name string) bool {
+	return name == "" || name == "_"
+}
+
 func assignVariableNamesForFields(
 	global map[string]struct{},
 	local map[string]recognizedType,
@@ -155,7 +159,7 @@ func assignVariableNamesForFields(
 ) {
 	for i, field := range fieldList {
 		_, globalExisted := global[field.name]
-		if field.name != "" && !globalExisted && field.name != "w" {
+		if !nameIsEmpty(field.name) && !globalExisted && field.name != "w" {
 			continue
 		}
 
