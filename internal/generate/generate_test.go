@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"errors"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -505,4 +506,22 @@ func TestLoadPackageTypeInfo_For_Type_Alias(t *testing.T) {
 		},
 		interfaces: []interfaceInfo{interface1},
 	}, info)
+}
+
+func TestLoadPackageTypeInfo_Not_Found(t *testing.T) {
+	info, err := loadPackageTypeData("./hello", "RandomInterface")
+	assert.Equal(t, errors.New("can not find interface 'RandomInterface'"), err)
+	assert.Equal(t, packageTypeInfo{}, info)
+}
+
+func TestLoadPackageTypeInfo_Not_Found_Second_Interface(t *testing.T) {
+	info, err := loadPackageTypeData("./hello", "Simple", "AnotherInterface")
+	assert.Equal(t, errors.New("can not find interface 'AnotherInterface'"), err)
+	assert.Equal(t, packageTypeInfo{}, info)
+}
+
+func TestLoadPackageTypeInfo_Not_An_Interface(t *testing.T) {
+	info, err := loadPackageTypeData("./hello", "User")
+	assert.Equal(t, errors.New("name 'User' is not an interface"), err)
+	assert.Equal(t, packageTypeInfo{}, info)
 }
