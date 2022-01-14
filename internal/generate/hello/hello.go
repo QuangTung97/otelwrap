@@ -44,3 +44,6 @@ type Simple interface {
 	Handle(ctx context.Context, u *User) error
 	Variadic(ctx context.Context, names ...string)
 }
+
+// SimpleAlias ...
+type SimpleAlias = Simple

@@ -214,21 +214,24 @@ func findInterfaceTypeForDecl(interfaceName string, syntax *ast.File) *ast.TypeS
 	return nil
 }
 
-func findInterfaceType(interfaceName string, syntaxFiles []*ast.File) (*ast.InterfaceType, error) {
-	var foundTypeSpec *ast.TypeSpec
+func findInterfaceTypeSpec(
+	interfaceName string, syntaxFiles []*ast.File,
+) *ast.TypeSpec {
 	for _, syntax := range syntaxFiles {
 		typeSpec := findInterfaceTypeForDecl(interfaceName, syntax)
 		if typeSpec != nil {
-			foundTypeSpec = typeSpec
-			break
+			return typeSpec
 		}
 	}
+	return nil
+}
 
-	interfaceType, ok := foundTypeSpec.Type.(*ast.InterfaceType)
+func findInterfaceAST(typeSpec *ast.TypeSpec) *ast.InterfaceType {
+	interfaceType, ok := typeSpec.Type.(*ast.InterfaceType)
 	if !ok {
-		return nil, fmt.Errorf("name '%s' is not an interface", interfaceName)
+		return nil
 	}
-	return interfaceType, nil
+	return interfaceType
 }
 
 func getImportInfos(syntaxFiles []*ast.File, acceptedPackages map[string]struct{}) []importInfo {
@@ -323,10 +326,10 @@ type embeddedInterface struct {
 	pkgPath string
 }
 
-func getEmbeddedInterface(field *ast.Field, foundPkg *packages.Package) (embeddedInterface, bool) {
-	selector, ok := field.Type.(*ast.SelectorExpr)
+func getEmbeddedInterfaceForTypeExpr(typeExpr ast.Expr, foundPkg *packages.Package) (embeddedInterface, bool) {
+	selector, ok := typeExpr.(*ast.SelectorExpr)
 	if !ok {
-		ident, ok := field.Type.(*ast.Ident)
+		ident, ok := typeExpr.(*ast.Ident)
 		if !ok {
 			return embeddedInterface{}, false
 		}
@@ -361,39 +364,70 @@ func getEmbeddedInterface(field *ast.Field, foundPkg *packages.Package) (embedde
 	}, true
 }
 
-func getInterfaceInfoRecursive(
-	methods []methodType,
-	loaded loadedPackages,
-	interfaceName string,
-	foundPkg loadedPackage,
-	visitorData *importVisitorData,
-) ([]methodType, error) {
-	interfaceType, err := findInterfaceType(interfaceName, foundPkg.pkg.Syntax)
-	if err != nil {
-		return nil, err
+type interfaceInfoFinder struct {
+	methods     []methodType
+	loaded      map[string]loadedPackage
+	visitorData *importVisitorData
+}
+
+func newInterfaceInfoFinder(loaded loadedPackages, visitorData *importVisitorData) *interfaceInfoFinder {
+	return &interfaceInfoFinder{
+		loaded:      loaded,
+		visitorData: visitorData,
+	}
+}
+
+func (f *interfaceInfoFinder) getInterfaceHandleTypeAlias(
+	typeSpec *ast.TypeSpec, interfaceName string, foundPkg loadedPackage,
+) error {
+	embed, ok := getEmbeddedInterfaceForTypeExpr(typeSpec.Type, foundPkg.pkg)
+	if !ok {
+		return fmt.Errorf("name '%s' is not an interface", interfaceName)
 	}
 
-	visitor := newImportVisitor(foundPkg.pkg.TypesInfo, visitorData)
+	embeddedPkg, err := loadPackageForInterfaces(f.loaded, embed.pkgPath, embed.name)
+	if err != nil {
+		return err
+	}
+
+	return f.getInterfaceInfoRecursive(embed.name, embeddedPkg)
+}
+
+func (f *interfaceInfoFinder) getInterfaceInfoRecursive(
+	interfaceName string,
+	foundPkg loadedPackage,
+) error {
+	typeSpec := findInterfaceTypeSpec(interfaceName, foundPkg.pkg.Syntax)
+	if typeSpec == nil {
+		return fmt.Errorf("name '%s' is not a type spec", interfaceName)
+	}
+
+	interfaceType := findInterfaceAST(typeSpec)
+	if interfaceType == nil {
+		return f.getInterfaceHandleTypeAlias(typeSpec, interfaceName, foundPkg)
+	}
+
+	visitor := newImportVisitor(foundPkg.pkg.TypesInfo, f.visitorData)
 
 	for _, field := range interfaceType.Methods.List {
 		funcType, ok := field.Type.(*ast.FuncType)
 		if !ok {
-			embed, ok := getEmbeddedInterface(field, foundPkg.pkg)
+			embed, ok := getEmbeddedInterfaceForTypeExpr(field.Type, foundPkg.pkg)
 			if !ok {
 				continue
 			}
 
-			embeddedPkg, err := loadPackageForInterfaces(loaded, embed.pkgPath, embed.name)
+			embeddedPkg, err := loadPackageForInterfaces(f.loaded, embed.pkgPath, embed.name)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
-			methods, err = getInterfaceInfoRecursive(methods, loaded, embed.name, embeddedPkg, visitorData)
+			err = f.getInterfaceInfoRecursive(embed.name, embeddedPkg)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
-			visitorData.append(getImportInfos(embeddedPkg.pkg.Syntax, visitorData.packagePaths))
+			f.visitorData.append(getImportInfos(embeddedPkg.pkg.Syntax, f.visitorData.packagePaths))
 			continue
 		}
 
@@ -402,32 +436,28 @@ func getInterfaceInfoRecursive(
 		params := fieldListToTupleList(funcType.Params, foundPkg.pkg.Fset, foundPkg.fileMap, foundPkg.pkg.TypesInfo)
 		results := fieldListToTupleList(funcType.Results, foundPkg.pkg.Fset, foundPkg.fileMap, foundPkg.pkg.TypesInfo)
 
-		methods = append(methods, methodType{
+		f.methods = append(f.methods, methodType{
 			name:    field.Names[0].Name,
 			params:  params,
 			results: results,
 		})
 	}
 
-	return methods, nil
+	return nil
 }
 
-func getInterfaceInfo(
-	loaded loadedPackages,
+func (f *interfaceInfoFinder) getInterfaceInfo(
 	interfaceName string,
 	foundPkg loadedPackage,
-	visitorData *importVisitorData,
 ) (interfaceInfo, error) {
-	methods := make([]methodType, 0)
-
-	methods, err := getInterfaceInfoRecursive(methods, loaded, interfaceName, foundPkg, visitorData)
+	err := f.getInterfaceInfoRecursive(interfaceName, foundPkg)
 	if err != nil {
 		return interfaceInfo{}, err
 	}
 
 	return interfaceInfo{
 		name:    interfaceName,
-		methods: methods,
+		methods: f.methods,
 	}, nil
 }
 
@@ -505,7 +535,9 @@ func loadPackageTypeData(pattern string, interfaceNames ...string) (packageTypeI
 
 	var interfaces []interfaceInfo
 	for _, interfaceName := range interfaceNames {
-		info, err := getInterfaceInfo(loaded, interfaceName, foundPkg, visitorData)
+		finder := newInterfaceInfoFinder(loaded, visitorData)
+
+		info, err := finder.getInterfaceInfo(interfaceName, foundPkg)
 		if err != nil {
 			return packageTypeInfo{}, err
 		}

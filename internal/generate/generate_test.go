@@ -361,3 +361,148 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 		interfaces: []interfaceInfo{interface1},
 	}, info)
 }
+
+func TestLoadPackageTypeInfo_For_Type_Alias(t *testing.T) {
+	info, err := loadPackageTypeData("./hello", "SimpleAlias")
+	assert.Equal(t, nil, err)
+
+	interface1 := interfaceInfo{
+		name: "SimpleAlias",
+		methods: []methodType{
+			{
+				name: "Scan",
+				params: []tupleType{
+					{
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
+						pkgList:    pkgListContext(),
+					},
+					{
+						name:    "n",
+						typeStr: "int",
+					},
+				},
+				results: []tupleType{
+					{
+						name:       "",
+						typeStr:    "error",
+						recognized: recognizedTypeError,
+					},
+				},
+			},
+			{
+				name: "Convert",
+				params: []tupleType{
+					{
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
+						pkgList:    pkgListContext(),
+					},
+					{
+						name:    "d",
+						typeStr: "time.Duration",
+						pkgList: []tupleTypePkg{
+							{
+								path:  "time",
+								begin: 0,
+								end:   len("time"),
+							},
+						},
+					},
+				},
+				results: nil,
+			},
+			{
+				name: "SetInfo",
+				params: []tupleType{
+					{
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
+						pkgList:    pkgListContext(),
+					},
+					{
+						name:    "info",
+						typeStr: "ScannerInfo",
+						pkgList: []tupleTypePkg{
+							{
+								path: "github.com/QuangTung97/otelwrap/internal/generate/hello/embed",
+							},
+						},
+					},
+				},
+				results: nil,
+			},
+			{
+				name: "Handle",
+				params: []tupleType{
+					{
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
+						pkgList:    pkgListContext(),
+					},
+					{
+						name:    "u",
+						typeStr: "*User",
+						pkgList: []tupleTypePkg{
+							{
+								path:  "github.com/QuangTung97/otelwrap/internal/generate/hello",
+								begin: 1,
+								end:   1,
+							},
+						},
+					},
+				},
+				results: []tupleType{
+					{
+						name:       "",
+						typeStr:    "error",
+						recognized: recognizedTypeError,
+					},
+				},
+			},
+			{
+				name: "Variadic",
+				params: []tupleType{
+					{
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
+						pkgList:    pkgListContext(),
+					},
+					{
+						name:       "names",
+						typeStr:    "...string",
+						isVariadic: true,
+					},
+				},
+			},
+		},
+	}
+
+	assert.Equal(t, packageTypeInfo{
+		name: "hello",
+		path: "github.com/QuangTung97/otelwrap/internal/generate/hello",
+		imports: []importInfo{
+			{
+				aliasName: "",
+				path:      "context",
+				usedName:  "context",
+			},
+			{
+				aliasName: "",
+				path:      "time",
+				usedName:  "time",
+			},
+			{
+				aliasName: "",
+				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/embed",
+				usedName:  "embed",
+			},
+		},
+		interfaces: []interfaceInfo{interface1},
+	}, info)
+}
