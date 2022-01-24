@@ -331,7 +331,8 @@ func generateCodeForMethod(
 	}
 }
 
-func importControllerAddImports(importController *importer, imports []importInfo) {
+//revive:disable-next-line:flag-parameter
+func importControllerAddImports(importController *importer, imports []importInfo, addOtelCodes bool) {
 	for _, importDetail := range imports {
 		importController.add(importDetail)
 	}
@@ -340,10 +341,13 @@ func importControllerAddImports(importController *importer, imports []importInfo
 		path:     otelTracePkgPath,
 		usedName: "trace",
 	}, withPreferPrefix("otel"))
-	importController.add(importInfo{
-		path:     otelCodesPkgPath,
-		usedName: "codes",
-	}, withPreferPrefix("otel"))
+
+	if addOtelCodes {
+		importController.add(importInfo{
+			path:     otelCodesPkgPath,
+			usedName: "codes",
+		}, withPreferPrefix("otel"))
+	}
 }
 
 type generateConfig struct {
@@ -372,6 +376,19 @@ func computeGenerateConfig(options ...Option) generateConfig {
 	return conf
 }
 
+func containsErrorReturns(info packageTypeInfo) bool {
+	for _, interfaceDetail := range info.interfaces {
+		for _, method := range interfaceDetail.methods {
+			for _, result := range method.results {
+				if result.recognized == recognizedTypeError {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func generateCode(writer io.Writer, info packageTypeInfo, options ...Option) error {
 	conf := computeGenerateConfig(options...)
 
@@ -382,7 +399,8 @@ func generateCode(writer io.Writer, info packageTypeInfo, options ...Option) err
 			usedName: path.Base(info.path),
 		})
 	}
-	importControllerAddImports(importController, info.imports)
+	addOtelCodes := containsErrorReturns(info)
+	importControllerAddImports(importController, info.imports, addOtelCodes)
 
 	controllerImports := importController.getImports()
 	newImports := make([]importInfo, 0, len(controllerImports))

@@ -18,6 +18,8 @@ enableAllRules = true
     Disabled = true
 [rule.add-constant]
     Disabled = true
+[rule.banned-characters]
+    Disabled = true
 
 # Rule tuning
 [rule.argument-limit]

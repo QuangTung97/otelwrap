@@ -785,7 +785,6 @@ package example
 import (
 	"context"
 	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/codes"
 )
 
 // HandlerWrapper wraps OpenTelemetry's span
@@ -862,7 +861,6 @@ import (
 	"hello/example"
 	"context"
 	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/codes"
 )
 
 // HandlerWrapper wraps OpenTelemetry's span
@@ -1060,7 +1058,6 @@ package example
 import (
 	"context"
 	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/codes"
 )
 
 // HandlerWrapper wraps OpenTelemetry's span
@@ -1271,6 +1268,78 @@ func (w *HandlerWrapper) GetName(ctx context.Context, a string) (err error) {
 		span.SetStatus(codes.Error, err.Error())
 	}
 	return err
+}
+`, buf.String())
+}
+
+func TestGenerateCode_With_Only_Non_Error_Methods(t *testing.T) {
+	var buf bytes.Buffer
+	err := generateCode(&buf, packageTypeInfo{
+		name: "example",
+		path: "hello/example",
+		imports: []importInfo{
+			{
+				path:     "context",
+				usedName: "context",
+			},
+		},
+		interfaces: []interfaceInfo{
+			{
+				name: "Handler",
+				methods: []methodType{
+					{
+						name: "GetName",
+						params: []tupleType{
+							{
+								typeStr:    "context.Context",
+								recognized: recognizedTypeContext,
+								pkgList:    pkgListContext(),
+							},
+						},
+						results: []tupleType{
+							{
+								name:    "",
+								typeStr: "int64",
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	assert.Equal(t, nil, err)
+	assert.Equal(t, `
+package example
+
+import (
+	"context"
+	"go.opentelemetry.io/otel/trace"
+)
+
+// HandlerWrapper wraps OpenTelemetry's span
+type HandlerWrapper struct {
+	Handler
+	tracer trace.Tracer
+	prefix string
+}
+
+// NewHandlerWrapper creates a wrapper
+func NewHandlerWrapper(wrapped Handler, tracer trace.Tracer, prefix string) *HandlerWrapper {
+	return &HandlerWrapper{
+		Handler: wrapped,
+		tracer: tracer,
+		prefix: prefix,
+	}
+}
+
+// GetName ...
+func (w *HandlerWrapper) GetName(ctx context.Context) (a int64) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "GetName")
+	defer span.End()
+
+	a = w.Handler.GetName(ctx)
+	
+	return a
 }
 `, buf.String())
 }
