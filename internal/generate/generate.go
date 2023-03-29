@@ -266,10 +266,6 @@ func newImportVisitor(info *types.Info, visitorData *importVisitorData) *importV
 	}
 }
 
-func (v *importVisitorData) resetRootPackage(pkgPath string) {
-	v.rootPackagePath = pkgPath
-}
-
 func (v *importVisitorData) append(imports []importInfo) {
 	for _, importDetail := range imports {
 		if importDetail.path == v.rootPackagePath {
@@ -293,6 +289,13 @@ func (v *importVisitor) Visit(node ast.Node) ast.Visitor {
 	object, ok := v.info.Uses[ident]
 	if !ok {
 		return v
+	}
+
+	basicType, ok := object.Type().(*types.Basic)
+	if ok {
+		if basicType.Kind() == types.Invalid {
+			return v
+		}
 	}
 
 	if object.Pkg() == nil {

@@ -26,8 +26,6 @@ func (f *interfaceInfoFinder) getInterfaceHandleTypeAlias(
 		return fmt.Errorf("name '%s' is not an interface", interfaceName)
 	}
 
-	f.visitorData.resetRootPackage(embed.pkgPath)
-
 	embeddedPkg, err := f.loaded.loadPackageForInterfaces(embed.pkgPath, embed.name)
 	if err != nil {
 		return err
