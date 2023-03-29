@@ -1,4 +1,4 @@
-name: go-memcache
+name: otelwrap
 on:
   push:
     branches: [ master ]

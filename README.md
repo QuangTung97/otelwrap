@@ -1,7 +1,7 @@
 ## OtelWrap: code generation tool for Go OpenTelemetry
 
-[![Build Status](https://app.travis-ci.com/QuangTung97/otelwrap.svg?branch=master)](https://app.travis-ci.com/QuangTung97/otelwrap)
-[![Coverage Status](https://coveralls.io/repos/github/QuangTung97/otelwrap/badge.svg)](https://coveralls.io/github/QuangTung97/otelwrap)
+[![otelwrap](https://github.com/QuangTung97/otelwrap/actions/workflows/go.yml/badge.svg)](https://github.com/QuangTung97/otelwrap/actions/workflows/go.yml)
+[![Coverage Status](https://coveralls.io/repos/github/QuangTung97/otelwrap/badge.svg?branch=master)](https://coveralls.io/github/QuangTung97/otelwrap?branch=master)
 
 ### What is OtelWrap?
 
