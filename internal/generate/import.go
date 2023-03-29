@@ -6,9 +6,9 @@ import (
 )
 
 type importer struct {
-	infos       []importInfo
-	importPaths map[string]int
-	usedNames   map[string]int
+	importClauses []importClause
+	importPaths   map[string]int
+	usedNames     map[string]int
 }
 
 type importClause struct {
@@ -52,19 +52,24 @@ func (i *importer) add(importDetail importInfo, options ...addOption) {
 		return
 	}
 
-	index, ok = i.usedNames[importDetail.usedName]
+	clause := importClause{
+		usedName: importDetail.name,
+		path:     importDetail.path,
+	}
+
+	index, ok = i.usedNames[importDetail.name]
 	if ok {
 		dir := path.Dir(importDetail.path)
 
 		var newName string
 		if dir == "." {
-			newName = "std" + importDetail.usedName
+			newName = "std" + importDetail.name
 		} else {
 			if conf.prefix == "" {
 				base := path.Base(dir)
-				newName = base[:1] + importDetail.usedName
+				newName = base[:1] + importDetail.name
 			} else {
-				newName = conf.prefix + importDetail.usedName
+				newName = conf.prefix + importDetail.name
 			}
 		}
 
@@ -77,27 +82,21 @@ func (i *importer) add(importDetail importInfo, options ...addOption) {
 			newName = fmt.Sprintf("%s%d", prevNewName, suffix)
 		}
 
-		importDetail.aliasName = newName
-		importDetail.usedName = newName
+		clause.aliasName = newName
+		clause.usedName = newName
 	}
 
-	index = len(i.infos)
+	index = len(i.importClauses)
 
-	i.importPaths[importDetail.path] = index
-	i.usedNames[importDetail.usedName] = index
+	i.importPaths[clause.path] = index
+	i.usedNames[clause.usedName] = index
 
-	i.infos = append(i.infos, importDetail)
+	i.importClauses = append(i.importClauses, clause)
 }
 
 func (i *importer) getImports() []importClause {
-	var result []importClause
-	for _, info := range i.infos {
-		result = append(result, importClause{
-			aliasName: info.aliasName,
-			path:      info.path,
-			usedName:  info.usedName,
-		})
-	}
+	result := make([]importClause, len(i.importClauses))
+	copy(result, i.importClauses)
 	return result
 }
 
@@ -106,5 +105,5 @@ func (i *importer) chosenName(importPath string) string {
 	if !ok {
 		return ""
 	}
-	return i.infos[index].usedName
+	return i.importClauses[index].usedName
 }

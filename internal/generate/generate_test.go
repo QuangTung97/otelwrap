@@ -336,29 +336,24 @@ func TestLoadPackageTypeInfo(t *testing.T) {
 		path: "github.com/QuangTung97/otelwrap/internal/generate/hello",
 		imports: []importInfo{
 			{
-				aliasName: "",
-				path:      "context",
-				usedName:  "context",
+				path: "context",
+				name: "context",
 			},
 			{
-				aliasName: "",
-				path:      "time",
-				usedName:  "time",
+				path: "time",
+				name: "time",
 			},
 			{
-				aliasName: "",
-				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/embed",
-				usedName:  "embed",
+				path: "github.com/QuangTung97/otelwrap/internal/generate/hello/embed",
+				name: "embed",
 			},
 			{
-				aliasName: "otelgo",
-				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/otel",
-				usedName:  "otelgo",
+				path: "github.com/QuangTung97/otelwrap/internal/generate/hello/otel",
+				name: "otelgo",
 			},
 			{
-				aliasName: "otelgosdk",
-				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk",
-				usedName:  "otelgosdk",
+				path: "github.com/QuangTung97/otelwrap/internal/generate/hello/otel/sdk",
+				name: "otelgo",
 			},
 		},
 		interfaces: []interfaceInfo{interface1},
@@ -491,19 +486,16 @@ func TestLoadPackageTypeInfo_For_Type_Alias(t *testing.T) {
 		path: "github.com/QuangTung97/otelwrap/internal/generate/hello",
 		imports: []importInfo{
 			{
-				aliasName: "",
-				path:      "context",
-				usedName:  "context",
+				path: "context",
+				name: "context",
 			},
 			{
-				aliasName: "",
-				path:      "time",
-				usedName:  "time",
+				path: "time",
+				name: "time",
 			},
 			{
-				aliasName: "",
-				path:      "github.com/QuangTung97/otelwrap/internal/generate/hello/embed",
-				usedName:  "embed",
+				path: "github.com/QuangTung97/otelwrap/internal/generate/hello/embed",
+				name: "embed",
 			},
 		},
 		interfaces: []interfaceInfo{interface1},
@@ -570,8 +562,8 @@ func TestLoadPackageTypeInfo_Interface_With_Underscore(t *testing.T) {
 		path: rootPackagePath + "/hello",
 		imports: []importInfo{
 			{
-				usedName: "context",
-				path:     "context",
+				name: "context",
+				path: "context",
 			},
 		},
 		interfaces: []interfaceInfo{
@@ -580,5 +572,50 @@ func TestLoadPackageTypeInfo_Interface_With_Underscore(t *testing.T) {
 				methods: methods,
 			},
 		},
+	}, info)
+}
+
+func TestLoadPackageTypeInfo_For_Type_Alias__In_Another_Package(t *testing.T) {
+	info, err := loadPackageTypeData("./hello/another", "HandlerAlias")
+	assert.Equal(t, nil, err)
+
+	interface1 := interfaceInfo{
+		name: "HandlerAlias",
+		methods: []methodType{
+			{
+				name: "Process",
+				params: []tupleType{
+					{
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
+						pkgList:    pkgListContext(),
+					},
+					{
+						name:    "n",
+						typeStr: "int",
+					},
+				},
+				results: []tupleType{
+					{
+						name:       "",
+						typeStr:    "error",
+						recognized: recognizedTypeError,
+					},
+				},
+			},
+		},
+	}
+
+	assert.Equal(t, packageTypeInfo{
+		name: "another",
+		path: "github.com/QuangTung97/otelwrap/internal/generate/hello/another",
+		imports: []importInfo{
+			{
+				name: "context",
+				path: "context",
+			},
+		},
+		interfaces: []interfaceInfo{interface1},
 	}, info)
 }

@@ -11,9 +11,8 @@ func TestAssignVariableNames(t *testing.T) {
 		name: "example",
 		imports: []importInfo{
 			{
-				aliasName: "",
-				path:      "context",
-				usedName:  "context",
+				path: "context",
+				name: "context",
 			},
 		},
 		interfaces: []interfaceInfo{
@@ -73,9 +72,8 @@ func TestAssignVariableNames(t *testing.T) {
 		name: "example",
 		imports: []importInfo{
 			{
-				aliasName: "",
-				path:      "context",
-				usedName:  "context",
+				path: "context",
+				name: "context",
 			},
 		},
 		interfaces: []interfaceInfo{
@@ -143,9 +141,8 @@ func TestCollectVariables(t *testing.T) {
 		name: "example",
 		imports: []importInfo{
 			{
-				aliasName: "",
-				path:      "context",
-				usedName:  "context",
+				path: "context",
+				name: "context",
 			},
 		},
 		interfaces: []interfaceInfo{
@@ -237,12 +234,12 @@ func TestGenerateCode(t *testing.T) {
 		name: "example",
 		imports: []importInfo{
 			{
-				path:     "context",
-				usedName: "context",
+				path: "context",
+				name: "context",
 			},
 			{
-				path:     "time",
-				usedName: "time",
+				path: "time",
+				name: "time",
 			},
 		},
 		interfaces: []interfaceInfo{
@@ -377,20 +374,20 @@ func TestGenerateCode_W_In_Param(t *testing.T) {
 		name: "example",
 		imports: []importInfo{
 			{
-				path:     "context",
-				usedName: "context",
+				path: "context",
+				name: "context",
 			},
 			{
-				path:     "time",
-				usedName: "time",
+				path: "time",
+				name: "time",
 			},
 			{
-				path:     "sample/codes",
-				usedName: "codes",
+				path: "sample/codes",
+				name: "codes",
 			},
 			{
-				path:     "sample/trace",
-				usedName: "trace",
+				path: "sample/trace",
+				name: "trace",
 			},
 		},
 		interfaces: []interfaceInfo{
@@ -581,8 +578,8 @@ func TestGenerateCode_Without_Arg_Name(t *testing.T) {
 		name: "example",
 		imports: []importInfo{
 			{
-				path:     "context",
-				usedName: "context",
+				path: "context",
+				name: "context",
 			},
 		},
 		interfaces: []interfaceInfo{
@@ -664,8 +661,8 @@ func TestGenerateCode_Trace_As_Var_Name(t *testing.T) {
 		name: "example",
 		imports: []importInfo{
 			{
-				path:     "context",
-				usedName: "context",
+				path: "context",
+				name: "context",
 			},
 		},
 		interfaces: []interfaceInfo{
@@ -745,8 +742,8 @@ func TestGenerateCode_Use_Type_In_Current_Package(t *testing.T) {
 		path: "hello/example",
 		imports: []importInfo{
 			{
-				path:     "context",
-				usedName: "context",
+				path: "context",
+				name: "context",
 			},
 		},
 		interfaces: []interfaceInfo{
@@ -820,8 +817,8 @@ func TestGenerateCode_To_Another_Package(t *testing.T) {
 		path: "hello/example",
 		imports: []importInfo{
 			{
-				path:     "context",
-				usedName: "context",
+				path: "context",
+				name: "context",
 			},
 		},
 		interfaces: []interfaceInfo{
@@ -896,8 +893,8 @@ func TestGenerateCode_To_Another_Package_Return_Error(t *testing.T) {
 		path: "hello/example",
 		imports: []importInfo{
 			{
-				path:     "context",
-				usedName: "context",
+				path: "context",
+				name: "context",
 			},
 		},
 		interfaces: []interfaceInfo{
@@ -999,8 +996,8 @@ func TestGenerateCode_Multiple_Interfaces(t *testing.T) {
 		path: "hello/example",
 		imports: []importInfo{
 			{
-				path:     "context",
-				usedName: "context",
+				path: "context",
+				name: "context",
 			},
 		},
 		interfaces: []interfaceInfo{
@@ -1117,8 +1114,8 @@ func TestGenerateCode_With_Variadic_Params(t *testing.T) {
 		path: "hello/example",
 		imports: []importInfo{
 			{
-				path:     "context",
-				usedName: "context",
+				path: "context",
+				name: "context",
 			},
 		},
 		interfaces: []interfaceInfo{
@@ -1198,8 +1195,8 @@ func TestGenerateCode_With_Underscore(t *testing.T) {
 		path: "hello/example",
 		imports: []importInfo{
 			{
-				path:     "context",
-				usedName: "context",
+				path: "context",
+				name: "context",
 			},
 		},
 		interfaces: []interfaceInfo{
@@ -1279,8 +1276,8 @@ func TestGenerateCode_With_Only_Non_Error_Methods(t *testing.T) {
 		path: "hello/example",
 		imports: []importInfo{
 			{
-				path:     "context",
-				usedName: "context",
+				path: "context",
+				name: "context",
 			},
 		},
 		interfaces: []interfaceInfo{

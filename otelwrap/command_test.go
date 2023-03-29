@@ -248,3 +248,52 @@ func TestCheckInAnother(t *testing.T) {
 	inAnother = CheckInAnother("./hello.go")
 	assert.Equal(t, false, inAnother)
 }
+
+func TestFindAndGenerate_Alias_Of_Another_Package(t *testing.T) {
+	var buf bytes.Buffer
+	err := findAndGenerate(&buf, CommandArgs{
+		Dir:            ".",
+		SrcFileName:    "command_test.go",
+		InterfaceNames: []string{"HandlerAlias"},
+	})
+	assert.Equal(t, nil, err)
+	expected := `
+package otelwrap
+
+import (
+	"context"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
+)
+
+// HandlerAliasWrapper wraps OpenTelemetry's span
+type HandlerAliasWrapper struct {
+	HandlerAlias
+	tracer trace.Tracer
+	prefix string
+}
+
+// NewHandlerAliasWrapper creates a wrapper
+func NewHandlerAliasWrapper(wrapped HandlerAlias, tracer trace.Tracer, prefix string) *HandlerAliasWrapper {
+	return &HandlerAliasWrapper{
+		HandlerAlias: wrapped,
+		tracer: tracer,
+		prefix: prefix,
+	}
+}
+
+// Process ...
+func (w *HandlerAliasWrapper) Process(ctx context.Context, n int) (err error) {
+	ctx, span := w.tracer.Start(ctx, w.prefix + "Process")
+	defer span.End()
+
+	err = w.HandlerAlias.Process(ctx, n)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return err
+}
+`
+	assert.Equal(t, expected, buf.String())
+}

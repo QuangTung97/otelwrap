@@ -4,13 +4,19 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"github.com/QuangTung97/otelwrap/internal/generate"
+	"github.com/QuangTung97/otelwrap/internal/generate/hello"
 	"go/format"
 	"io"
 	"os"
 	"path"
 	"strings"
 )
+
+// =========================================
+// For Testing Only
+// =========================================
 
 // Sample for testing
 type Sample interface {
@@ -22,6 +28,11 @@ type Sample interface {
 type Repo interface {
 	Update(ctx context.Context, id int) error
 }
+
+// HandlerAlias ...
+type HandlerAlias = hello.Handler
+
+// =========================================
 
 // CommandArgs ...
 type CommandArgs struct {
@@ -59,6 +70,7 @@ func splitPackageNameFromInterfaceNames(interfaceNames []string) (string, []stri
 func findAndGenerate(w io.Writer, args CommandArgs) error {
 	packageName, interfaceNames, err := splitPackageNameFromInterfaceNames(args.InterfaceNames)
 	if err != nil {
+		fmt.Println("splitPackageNameFromInterfaceNames", err)
 		return err
 	}
 
@@ -77,6 +89,7 @@ func findAndGenerate(w io.Writer, args CommandArgs) error {
 	filePath := path.Join(args.Dir, args.SrcFileName)
 	findResult, err := generate.FindPackage(filePath, packageName)
 	if err != nil {
+		fmt.Println("FindPackage", err)
 		return err
 	}
 
@@ -100,6 +113,7 @@ func RunCommand(args CommandArgs, outFile string) error {
 
 	data, err := format.Source(buf.Bytes())
 	if err != nil {
+		fmt.Println("format.Source", string(buf.Bytes()), err)
 		return err
 	}
 

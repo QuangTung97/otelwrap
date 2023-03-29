@@ -12,6 +12,8 @@ enableAllRules = true
 # Disabled rules
 [rule.file-header]
     Disabled = true
+[rule.package-comments]
+    Disabled = true
 [rule.max-public-structs]
     Disabled = true
 [rule.function-length]

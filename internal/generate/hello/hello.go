@@ -52,3 +52,8 @@ type SimpleAlias = Simple
 type InterfaceWithUnderscore interface {
 	GetName(ctx context.Context, _ string, _ int) (_ int32, _ error)
 }
+
+// Handler ...
+type Handler interface {
+	Process(ctx context.Context, n int) error
+}

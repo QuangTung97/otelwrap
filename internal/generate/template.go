@@ -104,7 +104,7 @@ type templateInterfaceVariables struct {
 }
 
 type templateVariables struct {
-	globalVariables map[string]struct{}
+	globalVariables map[string]emptyStruct
 	interfaces      []templateInterfaceVariables
 }
 
@@ -113,7 +113,7 @@ func collectVariables(info packageTypeInfo) templateVariables {
 	global[info.name] = struct{}{}
 
 	for _, importDetail := range info.imports {
-		global[importDetail.usedName] = struct{}{}
+		global[importDetail.name] = struct{}{}
 	}
 
 	interfaces := make([]templateInterfaceVariables, 0, len(info.interfaces))
@@ -338,14 +338,14 @@ func importControllerAddImports(importController *importer, imports []importInfo
 	}
 
 	importController.add(importInfo{
-		path:     otelTracePkgPath,
-		usedName: "trace",
+		path: otelTracePkgPath,
+		name: "trace",
 	}, withPreferPrefix("otel"))
 
 	if addOtelCodes {
 		importController.add(importInfo{
-			path:     otelCodesPkgPath,
-			usedName: "codes",
+			path: otelCodesPkgPath,
+			name: "codes",
 		}, withPreferPrefix("otel"))
 	}
 }
@@ -395,8 +395,8 @@ func generateCode(writer io.Writer, info packageTypeInfo, options ...Option) err
 	importController := newImporter()
 	if conf.inAnotherPackage {
 		importController.add(importInfo{
-			path:     info.path,
-			usedName: path.Base(info.path),
+			path: info.path,
+			name: path.Base(info.path),
 		})
 	}
 	addOtelCodes := containsErrorReturns(info)
@@ -406,9 +406,8 @@ func generateCode(writer io.Writer, info packageTypeInfo, options ...Option) err
 	newImports := make([]importInfo, 0, len(controllerImports))
 	for _, clause := range controllerImports {
 		newImports = append(newImports, importInfo{
-			aliasName: clause.aliasName,
-			usedName:  clause.usedName,
-			path:      clause.path,
+			name: clause.usedName,
+			path: clause.path,
 		})
 	}
 	info.imports = newImports
@@ -481,5 +480,10 @@ func LoadAndGenerate(w io.Writer, pattern string, interfaceNames []string, optio
 	if err != nil {
 		return err
 	}
-	return generateCode(w, info, options...)
+	err = generateCode(w, info, options...)
+	if err != nil {
+		fmt.Println("generateCode", err)
+		return err
+	}
+	return nil
 }

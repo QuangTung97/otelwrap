@@ -6,10 +6,10 @@ import (
 	"go/token"
 	"go/types"
 	"golang.org/x/tools/go/packages"
-	"io/ioutil"
+	"io"
 	"os"
-	"path"
-	"strconv"
+	"sort"
+	"strings"
 )
 
 type recognizedType int
@@ -23,6 +23,7 @@ const (
 	recognizedTypeSpan
 )
 
+// tupleTypePkg for replacing package names
 type tupleTypePkg struct {
 	path  string
 	begin int
@@ -45,9 +46,8 @@ type methodType struct {
 }
 
 type importInfo struct {
-	aliasName string
-	usedName  string
-	path      string
+	name string
+	path string
 }
 
 type interfaceInfo struct {
@@ -185,7 +185,7 @@ func readFiles(files []string) map[string]string {
 			panic(err)
 		}
 
-		data, err := ioutil.ReadAll(file)
+		data, err := io.ReadAll(file)
 		if err != nil {
 			panic(err)
 		}
@@ -234,40 +234,14 @@ func findInterfaceAST(typeSpec *ast.TypeSpec) *ast.InterfaceType {
 	return interfaceType
 }
 
-func getImportInfos(syntaxFiles []*ast.File, acceptedPackages map[string]struct{}) []importInfo {
-	var imports []importInfo
-	for _, syntax := range syntaxFiles {
-		for _, importDetail := range syntax.Imports {
-			pathValue, err := strconv.Unquote(importDetail.Path.Value)
-			if err != nil {
-				panic(err)
-			}
-
-			aliasName := ""
-			usedName := path.Base(pathValue)
-			if importDetail.Name != nil {
-				aliasName = importDetail.Name.Name
-				usedName = aliasName
-			}
-
-			if _, ok := acceptedPackages[pathValue]; !ok {
-				continue
-			}
-
-			imports = append(imports, importInfo{
-				aliasName: aliasName,
-				path:      pathValue,
-				usedName:  usedName,
-			})
-		}
-	}
-	return imports
-}
+type emptyStruct = struct{}
 
 type importVisitorData struct {
-	packagePaths map[string]struct{}
+	rootPackagePath string
 
-	existedImports map[string]struct{}
+	packagePaths map[string]emptyStruct
+
+	existedImports map[string]emptyStruct
 	imports        []importInfo
 }
 
@@ -276,11 +250,12 @@ type importVisitor struct {
 	data *importVisitorData
 }
 
-func newImportVisitorData() *importVisitorData {
+func newImportVisitorData(rootPackagePath string) *importVisitorData {
 	return &importVisitorData{
-		packagePaths:   map[string]struct{}{},
-		existedImports: map[string]struct{}{},
-		imports:        nil,
+		rootPackagePath: rootPackagePath,
+		packagePaths:    map[string]emptyStruct{},
+		existedImports:  map[string]emptyStruct{},
+		imports:         nil,
 	}
 }
 
@@ -291,13 +266,21 @@ func newImportVisitor(info *types.Info, visitorData *importVisitorData) *importV
 	}
 }
 
+func (v *importVisitorData) resetRootPackage(pkgPath string) {
+	v.rootPackagePath = pkgPath
+}
+
 func (v *importVisitorData) append(imports []importInfo) {
 	for _, importDetail := range imports {
+		if importDetail.path == v.rootPackagePath {
+			continue
+		}
+
 		if _, existed := v.existedImports[importDetail.path]; existed {
 			continue
 		}
 
-		v.existedImports[importDetail.path] = struct{}{}
+		v.existedImports[importDetail.path] = emptyStruct{}
 		v.imports = append(v.imports, importDetail)
 	}
 }
@@ -316,8 +299,16 @@ func (v *importVisitor) Visit(node ast.Node) ast.Visitor {
 		return v
 	}
 
-	pkgPath := object.Pkg().Path()
-	v.data.packagePaths[pkgPath] = struct{}{}
+	pkgInfo := object.Pkg()
+	pkgPath := pkgInfo.Path()
+
+	v.data.packagePaths[pkgPath] = emptyStruct{}
+	v.data.append([]importInfo{
+		{
+			name: pkgInfo.Name(),
+			path: pkgPath,
+		},
+	})
 	return v
 }
 
@@ -386,14 +377,39 @@ func checkAndFindPackageForInterfaces(
 	return foundPkg, nil
 }
 
+func sortImportInfos(imports []importInfo) []importInfo {
+	var stdImports []importInfo
+	var otherImports []importInfo
+	for _, importDetail := range imports {
+		if strings.ContainsRune(importDetail.path, '.') {
+			otherImports = append(otherImports, importDetail)
+		} else {
+			stdImports = append(stdImports, importDetail)
+		}
+	}
+
+	sort.Slice(stdImports, func(i, j int) bool {
+		return stdImports[i].path < stdImports[j].path
+	})
+
+	sort.Slice(otherImports, func(i, j int) bool {
+		return otherImports[i].path < otherImports[j].path
+	})
+
+	result := stdImports
+	result = append(result, otherImports...)
+	return result
+}
+
 func loadPackageTypeData(pattern string, interfaceNames ...string) (packageTypeInfo, error) {
 	loaded := loadedPackages{}
 	foundPkg, err := loaded.loadPackageForInterfaces(pattern, interfaceNames...)
 	if err != nil {
+		fmt.Println("loadPackageForInterfaces", err)
 		return packageTypeInfo{}, err
 	}
 
-	visitorData := newImportVisitorData()
+	visitorData := newImportVisitorData(foundPkg.pkg.PkgPath)
 
 	var interfaces []interfaceInfo
 	for _, interfaceName := range interfaceNames {
@@ -401,17 +417,16 @@ func loadPackageTypeData(pattern string, interfaceNames ...string) (packageTypeI
 
 		info, err := finder.getInterfaceInfo(interfaceName, foundPkg)
 		if err != nil {
+			fmt.Println("getInterfaceInfo", err)
 			return packageTypeInfo{}, err
 		}
 		interfaces = append(interfaces, info)
 	}
 
-	visitorData.append(getImportInfos(foundPkg.pkg.Syntax, visitorData.packagePaths))
-
 	return packageTypeInfo{
 		name:       foundPkg.pkg.Name,
 		path:       foundPkg.pkg.PkgPath,
-		imports:    visitorData.imports,
+		imports:    sortImportInfos(visitorData.imports),
 		interfaces: interfaces,
 	}, nil
 }

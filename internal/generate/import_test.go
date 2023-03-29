@@ -8,37 +8,37 @@ import (
 func TestImporter_Same_Path(t *testing.T) {
 	i := newImporter()
 	i.add(importInfo{
-		aliasName: "stderrors",
-		usedName:  "stderrors",
-		path:      "errors",
+		name: "stderrors",
+		path: "errors",
 	})
 
 	assert.Equal(t, []importClause{
-		{aliasName: "stderrors", path: "errors", usedName: "stderrors"},
+		{
+			path:     "errors",
+			usedName: "stderrors",
+		},
 	}, i.getImports())
 	assert.Equal(t, "stderrors", i.chosenName("errors"))
 	assert.Equal(t, "", i.chosenName("context"))
 
 	i.add(importInfo{
-		aliasName: "",
-		usedName:  "context",
-		path:      "context",
+		name: "context",
+		path: "context",
 	})
 
 	assert.Equal(t, []importClause{
-		{aliasName: "stderrors", path: "errors", usedName: "stderrors"},
-		{aliasName: "", path: "context", usedName: "context"},
+		{path: "errors", usedName: "stderrors"},
+		{path: "context", usedName: "context"},
 	}, i.getImports())
 	assert.Equal(t, "context", i.chosenName("context"))
 
 	i.add(importInfo{
-		aliasName: "",
-		usedName:  "errors",
-		path:      "errors",
+		name: "errors",
+		path: "errors",
 	})
 
 	assert.Equal(t, []importClause{
-		{aliasName: "stderrors", path: "errors", usedName: "stderrors"},
+		{path: "errors", usedName: "stderrors"},
 		{aliasName: "", path: "context", usedName: "context"},
 	}, i.getImports())
 	assert.Equal(t, "stderrors", i.chosenName("errors"))
@@ -47,12 +47,12 @@ func TestImporter_Same_Path(t *testing.T) {
 func TestImporter_Same_UsedName(t *testing.T) {
 	i := newImporter()
 	i.add(importInfo{
-		usedName: "codes",
-		path:     "grpc/codes",
+		name: "codes",
+		path: "grpc/codes",
 	})
 	i.add(importInfo{
-		usedName: "codes",
-		path:     "domain/codes",
+		name: "codes",
+		path: "domain/codes",
 	})
 
 	assert.Equal(t, []importClause{
@@ -72,12 +72,12 @@ func TestImporter_Same_UsedName(t *testing.T) {
 func TestImporter_Same_UsedName_With_StdLib(t *testing.T) {
 	i := newImporter()
 	i.add(importInfo{
-		usedName: "codes",
-		path:     "grpc/codes",
+		name: "codes",
+		path: "grpc/codes",
 	})
 	i.add(importInfo{
-		usedName: "codes",
-		path:     "codes",
+		name: "codes",
+		path: "codes",
 	})
 
 	assert.Equal(t, []importClause{
@@ -97,12 +97,12 @@ func TestImporter_Same_UsedName_With_StdLib(t *testing.T) {
 func TestImporter_Same_UsedName_Path_Multi_Levels(t *testing.T) {
 	i := newImporter()
 	i.add(importInfo{
-		usedName: "codes",
-		path:     "grpc/codes",
+		name: "codes",
+		path: "grpc/codes",
 	})
 	i.add(importInfo{
-		usedName: "codes",
-		path:     "sample/hello/codes",
+		name: "codes",
+		path: "sample/hello/codes",
 	})
 
 	assert.Equal(t, []importClause{
@@ -122,17 +122,16 @@ func TestImporter_Same_UsedName_Path_Multi_Levels(t *testing.T) {
 func TestImporter_Same_UsedName_New_Name_Still_Existed(t *testing.T) {
 	i := newImporter()
 	i.add(importInfo{
-		usedName: "codes",
-		path:     "grpc/codes",
+		name: "codes",
+		path: "grpc/codes",
 	})
 	i.add(importInfo{
-		aliasName: "hcodes",
-		usedName:  "hcodes",
-		path:      "sample/hello/codes",
+		name: "codes",
+		path: "sample/hello/codes",
 	})
 	i.add(importInfo{
-		usedName: "codes",
-		path:     "another/hello/codes",
+		name: "codes",
+		path: "another/hello/codes",
 	})
 
 	assert.Equal(t, []importClause{
@@ -157,22 +156,20 @@ func TestImporter_Same_UsedName_New_Name_Still_Existed(t *testing.T) {
 func TestImporter_Same_UsedName_New_Name_Still_Existed_Suffix_2(t *testing.T) {
 	i := newImporter()
 	i.add(importInfo{
-		usedName: "codes",
-		path:     "grpc/codes",
+		name: "codes",
+		path: "grpc/codes",
 	})
 	i.add(importInfo{
-		aliasName: "hcodes",
-		usedName:  "hcodes",
-		path:      "sample/hello/codes",
+		name: "hcodes",
+		path: "sample/hello/codes",
 	})
 	i.add(importInfo{
-		aliasName: "hcodes1",
-		usedName:  "hcodes1",
-		path:      "another/hello/codes",
+		name: "hcodes1",
+		path: "another/hello/codes",
 	})
 	i.add(importInfo{
-		usedName: "codes",
-		path:     "else/hello/codes",
+		name: "codes",
+		path: "else/hello/codes",
 	})
 
 	assert.Equal(t, []importClause{
@@ -182,14 +179,12 @@ func TestImporter_Same_UsedName_New_Name_Still_Existed_Suffix_2(t *testing.T) {
 			usedName:  "codes",
 		},
 		{
-			aliasName: "hcodes",
-			path:      "sample/hello/codes",
-			usedName:  "hcodes",
+			path:     "sample/hello/codes",
+			usedName: "hcodes",
 		},
 		{
-			aliasName: "hcodes1",
-			path:      "another/hello/codes",
-			usedName:  "hcodes1",
+			path:     "another/hello/codes",
+			usedName: "hcodes1",
 		},
 		{
 			aliasName: "hcodes2",
@@ -202,12 +197,12 @@ func TestImporter_Same_UsedName_New_Name_Still_Existed_Suffix_2(t *testing.T) {
 func TestImporter_Same_UsedName_With_Prefer_Prefix(t *testing.T) {
 	i := newImporter()
 	i.add(importInfo{
-		usedName: "codes",
-		path:     "sample/codes",
+		name: "codes",
+		path: "sample/codes",
 	})
 	i.add(importInfo{
-		usedName: "codes",
-		path:     "opentelemetry/codes",
+		name: "codes",
+		path: "opentelemetry/codes",
 	}, withPreferPrefix("otel"))
 
 	assert.Equal(t, []importClause{
