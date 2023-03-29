@@ -242,8 +242,6 @@ type emptyStruct = struct{}
 type importVisitorData struct {
 	rootPackagePath string
 
-	packagePaths map[string]emptyStruct
-
 	existedImports map[string]emptyStruct
 	imports        []importInfo
 }
@@ -256,7 +254,6 @@ type importVisitor struct {
 func newImportVisitorData(rootPackagePath string) *importVisitorData {
 	return &importVisitorData{
 		rootPackagePath: rootPackagePath,
-		packagePaths:    map[string]emptyStruct{},
 		existedImports:  map[string]emptyStruct{},
 		imports:         nil,
 	}
@@ -308,7 +305,6 @@ func (v *importVisitor) Visit(node ast.Node) ast.Visitor {
 	pkgInfo := object.Pkg()
 	pkgPath := pkgInfo.Path()
 
-	v.data.packagePaths[pkgPath] = emptyStruct{}
 	v.data.append([]importInfo{
 		{
 			name: pkgInfo.Name(),
