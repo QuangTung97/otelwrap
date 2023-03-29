@@ -57,3 +57,14 @@ type InterfaceWithUnderscore interface {
 type Handler interface {
 	Process(ctx context.Context, n int) error
 }
+
+// Null ...
+type Null[T any] struct {
+	Valid bool
+	Data  T
+}
+
+// GenericHandler ...
+type GenericHandler interface {
+	GetNull(ctx context.Context, info Null[otelgo.AnotherInfo]) (Null[otelgo.Person], error)
+}

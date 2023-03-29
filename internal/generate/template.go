@@ -231,16 +231,28 @@ func getVariableName(
 }
 
 func replacePackageName(typeStr string, pkgList []tupleTypePkg, importController *importer) string {
-	result := typeStr
+	var buf strings.Builder
+
+	var fromOffset int
+
+	replace := func(pkg tupleTypePkg, newName string) {
+		_, _ = buf.WriteString(typeStr[fromOffset:pkg.begin])
+		_, _ = buf.WriteString(newName)
+		fromOffset = pkg.end
+	}
+
 	for _, pkg := range pkgList {
 		chosenName := importController.chosenName(pkg.path)
 		if pkg.begin == pkg.end && chosenName != "" {
-			result = result[:pkg.begin] + chosenName + "." + result[pkg.end:]
+			replace(pkg, chosenName+".")
 		} else {
-			result = result[:pkg.begin] + chosenName + result[pkg.end:]
+			replace(pkg, chosenName)
 		}
 	}
-	return result
+
+	_, _ = buf.WriteString(typeStr[fromOffset:])
+
+	return buf.String()
 }
 
 func generateFieldListString(fields []tupleType, importController *importer) string {

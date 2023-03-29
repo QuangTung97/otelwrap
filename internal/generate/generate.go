@@ -108,25 +108,28 @@ func (v *tupleVisitor) Visit(node ast.Node) ast.Visitor {
 	}
 
 	pkg := object.Pkg()
-	if pkg != nil {
-		var pkgInfo tupleTypePkg
-		if v.foundPkg {
-			v.foundPkg = false
-			pkgInfo = tupleTypePkg{
-				path:  pkg.Path(),
-				begin: v.packageBegin,
-				end:   v.packageEnd,
-			}
-		} else {
-			identBegin := int(ident.Pos() - v.begin)
-			pkgInfo = tupleTypePkg{
-				path:  pkg.Path(),
-				begin: identBegin,
-				end:   identBegin,
-			}
-		}
-		v.pkgList = append(v.pkgList, pkgInfo)
+	if pkg == nil {
+		return v
 	}
+
+	var pkgInfo tupleTypePkg
+	if v.foundPkg {
+		v.foundPkg = false
+		pkgInfo = tupleTypePkg{
+			path:  pkg.Path(),
+			begin: v.packageBegin,
+			end:   v.packageEnd,
+		}
+	} else {
+		identBegin := int(ident.Pos() - v.begin)
+		pkgInfo = tupleTypePkg{
+			path:  pkg.Path(),
+			begin: identBegin,
+			end:   identBegin,
+		}
+	}
+
+	v.pkgList = append(v.pkgList, pkgInfo)
 	return v
 }
 

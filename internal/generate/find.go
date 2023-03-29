@@ -4,7 +4,7 @@ import (
 	"errors"
 	"go/parser"
 	"go/token"
-	"io/ioutil"
+	"io"
 	"os"
 	"path"
 )
@@ -28,7 +28,7 @@ func FindPackage(filePath string, pkgName string) (FindResult, error) {
 		_ = srcFile.Close()
 	}()
 
-	data, err := ioutil.ReadAll(srcFile)
+	data, err := io.ReadAll(srcFile)
 	if err != nil {
 		return FindResult{}, err
 	}

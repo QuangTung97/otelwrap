@@ -2,6 +2,7 @@ package otelwrap
 
 import (
 	"bytes"
+	_ "embed"
 	"errors"
 	"github.com/QuangTung97/otelwrap/internal/generate/hello"
 	"github.com/stretchr/testify/assert"
@@ -296,4 +297,19 @@ func (w *HandlerAliasWrapper) Process(ctx context.Context, n int) (err error) {
 }
 `
 	assert.Equal(t, expected, buf.String())
+}
+
+//go:embed testdata/generic_handler
+var genericHandlerData string
+
+func TestFindAndGenerate_Interface_With_Generic_Types(t *testing.T) {
+	var buf bytes.Buffer
+	err := findAndGenerate(&buf, CommandArgs{
+		Dir:            ".",
+		SrcFileName:    "command_test.go",
+		InterfaceNames: []string{"hello.GenericHandler"},
+	})
+	assert.Equal(t, nil, err)
+
+	assert.Equal(t, "\n"+genericHandlerData, buf.String())
 }

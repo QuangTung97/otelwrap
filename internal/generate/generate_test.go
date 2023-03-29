@@ -619,3 +619,80 @@ func TestLoadPackageTypeInfo_For_Type_Alias__In_Another_Package(t *testing.T) {
 		interfaces: []interfaceInfo{interface1},
 	}, info)
 }
+
+func TestLoadPackageTypeInfo_For_InterfaceType_With_Generic_Params_And_Returns(t *testing.T) {
+	info, err := loadPackageTypeData("./hello", "GenericHandler")
+	assert.Equal(t, nil, err)
+
+	interface1 := interfaceInfo{
+		name: "GenericHandler",
+		methods: []methodType{
+			{
+				name: "GetNull",
+				params: []tupleType{
+					{
+						name:       "ctx",
+						typeStr:    "context.Context",
+						recognized: recognizedTypeContext,
+						pkgList:    pkgListContext(),
+					},
+					{
+						name:    "info",
+						typeStr: "Null[otelgo.AnotherInfo]",
+						pkgList: []tupleTypePkg{
+							{
+								path:  "github.com/QuangTung97/otelwrap/internal/generate/hello",
+								begin: 0,
+								end:   0,
+							},
+							{
+								path:  "github.com/QuangTung97/otelwrap/internal/generate/hello/otel",
+								begin: len("Null["),
+								end:   len("Null[otelgo"),
+							},
+						},
+					},
+				},
+				results: []tupleType{
+					{
+						name:    "",
+						typeStr: "Null[otelgo.Person]",
+						pkgList: []tupleTypePkg{
+							{
+								path:  "github.com/QuangTung97/otelwrap/internal/generate/hello",
+								begin: 0,
+								end:   0,
+							},
+							{
+								path:  "github.com/QuangTung97/otelwrap/internal/generate/hello/otel",
+								begin: len("Null["),
+								end:   len("Null[otelgo"),
+							},
+						},
+					},
+					{
+						name:       "",
+						typeStr:    "error",
+						recognized: recognizedTypeError,
+					},
+				},
+			},
+		},
+	}
+
+	assert.Equal(t, packageTypeInfo{
+		name: "hello",
+		path: "github.com/QuangTung97/otelwrap/internal/generate/hello",
+		imports: []importInfo{
+			{
+				name: "context",
+				path: "context",
+			},
+			{
+				name: "otelgo",
+				path: "github.com/QuangTung97/otelwrap/internal/generate/hello/otel",
+			},
+		},
+		interfaces: []interfaceInfo{interface1},
+	}, info)
+}
